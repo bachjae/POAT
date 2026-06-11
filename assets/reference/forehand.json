@@ -1,0 +1,605 @@
+{
+  "stroke": "forehand",
+  "skill_levels": {
+    "beginner": {
+      "phases": {
+        "preparation": {
+          "metrics": [
+            {
+              "id": "shoulder_turn",
+              "ideal": [
+                60.0,
+                120.0
+              ],
+              "weight": 0.3,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "turn those shoulders earlier and fuller",
+              "cue_high": "shorten the shoulder turn a touch"
+            },
+            {
+              "id": "knee_flexion",
+              "ideal": [
+                112.5,
+                157.5
+              ],
+              "weight": 0.2,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "sit lower into your legs",
+              "cue_high": "stay a bit taller through prep"
+            },
+            {
+              "id": "trunk_tilt",
+              "ideal": [
+                -3.8,
+                18.8
+              ],
+              "weight": 0.1,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "stand a little more upright",
+              "cue_high": "lean into the court slightly"
+            }
+          ]
+        },
+        "backswing": {
+          "metrics": [
+            {
+              "id": "elbow_angle",
+              "ideal": [
+                77.5,
+                152.5
+              ],
+              "weight": 0.2,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "let the arm relax back further",
+              "cue_high": "keep the takeback more compact"
+            },
+            {
+              "id": "hip_shoulder_sep",
+              "ideal": [
+                8.8,
+                46.2
+              ],
+              "weight": 0.25,
+              "views": [
+                "front",
+                "back"
+              ],
+              "cue_low": "coil hips and shoulders together more",
+              "cue_high": "ease the coil \u2014 you're over-rotating"
+            }
+          ]
+        },
+        "contact": {
+          "metrics": [
+            {
+              "id": "elbow_angle",
+              "ideal": [
+                111.2,
+                163.8
+              ],
+              "weight": 0.3,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "extend through contact \u2014 arm's too bent",
+              "cue_high": "soften the elbow slightly at contact"
+            },
+            {
+              "id": "contact_in_front",
+              "ideal": [
+                0.0,
+                0.7
+              ],
+              "weight": 0.3,
+              "views": [
+                "side_left",
+                "side_right",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "meet the ball further out in front",
+              "cue_high": "let the ball come to you a touch"
+            },
+            {
+              "id": "knee_flexion",
+              "ideal": [
+                122.5,
+                167.5
+              ],
+              "weight": 0.15,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "drive up from the legs at contact",
+              "cue_high": "stay grounded through the hit"
+            }
+          ]
+        },
+        "follow_through": {
+          "metrics": [
+            {
+              "id": "wrist_finish_height",
+              "ideal": [
+                0.7,
+                2.0
+              ],
+              "weight": 0.25,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "finish higher \u2014 over the shoulder",
+              "cue_high": "relax the finish, let it wrap"
+            },
+            {
+              "id": "trunk_tilt",
+              "ideal": [
+                -5.0,
+                25.0
+              ],
+              "weight": 0.1,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "stay balanced \u2014 don't fall away",
+              "cue_high": "stay balanced \u2014 don't fall away"
+            }
+          ]
+        }
+      },
+      "timing": {
+        "prep_before_contact_ms": [
+          600,
+          1200
+        ]
+      }
+    },
+    "intermediate": {
+      "phases": {
+        "preparation": {
+          "metrics": [
+            {
+              "id": "shoulder_turn",
+              "ideal": [
+                70.0,
+                110.0
+              ],
+              "weight": 0.3,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "turn those shoulders earlier and fuller",
+              "cue_high": "shorten the shoulder turn a touch"
+            },
+            {
+              "id": "knee_flexion",
+              "ideal": [
+                120.0,
+                150.0
+              ],
+              "weight": 0.2,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "sit lower into your legs",
+              "cue_high": "stay a bit taller through prep"
+            },
+            {
+              "id": "trunk_tilt",
+              "ideal": [
+                0.0,
+                15.0
+              ],
+              "weight": 0.1,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "stand a little more upright",
+              "cue_high": "lean into the court slightly"
+            }
+          ]
+        },
+        "backswing": {
+          "metrics": [
+            {
+              "id": "elbow_angle",
+              "ideal": [
+                90.0,
+                140.0
+              ],
+              "weight": 0.2,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "let the arm relax back further",
+              "cue_high": "keep the takeback more compact"
+            },
+            {
+              "id": "hip_shoulder_sep",
+              "ideal": [
+                15.0,
+                40.0
+              ],
+              "weight": 0.25,
+              "views": [
+                "front",
+                "back"
+              ],
+              "cue_low": "coil hips and shoulders together more",
+              "cue_high": "ease the coil \u2014 you're over-rotating"
+            }
+          ]
+        },
+        "contact": {
+          "metrics": [
+            {
+              "id": "elbow_angle",
+              "ideal": [
+                120.0,
+                155.0
+              ],
+              "weight": 0.3,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "extend through contact \u2014 arm's too bent",
+              "cue_high": "soften the elbow slightly at contact"
+            },
+            {
+              "id": "contact_in_front",
+              "ideal": [
+                0.2,
+                0.6
+              ],
+              "weight": 0.3,
+              "views": [
+                "side_left",
+                "side_right",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "meet the ball further out in front",
+              "cue_high": "let the ball come to you a touch"
+            },
+            {
+              "id": "knee_flexion",
+              "ideal": [
+                130.0,
+                160.0
+              ],
+              "weight": 0.15,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "drive up from the legs at contact",
+              "cue_high": "stay grounded through the hit"
+            }
+          ]
+        },
+        "follow_through": {
+          "metrics": [
+            {
+              "id": "wrist_finish_height",
+              "ideal": [
+                0.9,
+                1.8
+              ],
+              "weight": 0.25,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "finish higher \u2014 over the shoulder",
+              "cue_high": "relax the finish, let it wrap"
+            },
+            {
+              "id": "trunk_tilt",
+              "ideal": [
+                0.0,
+                20.0
+              ],
+              "weight": 0.1,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "stay balanced \u2014 don't fall away",
+              "cue_high": "stay balanced \u2014 don't fall away"
+            }
+          ]
+        }
+      },
+      "timing": {
+        "prep_before_contact_ms": [
+          600,
+          1200
+        ]
+      }
+    },
+    "advanced": {
+      "phases": {
+        "preparation": {
+          "metrics": [
+            {
+              "id": "shoulder_turn",
+              "ideal": [
+                75.0,
+                105.0
+              ],
+              "weight": 0.3,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "turn those shoulders earlier and fuller",
+              "cue_high": "shorten the shoulder turn a touch"
+            },
+            {
+              "id": "knee_flexion",
+              "ideal": [
+                123.8,
+                146.2
+              ],
+              "weight": 0.2,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "sit lower into your legs",
+              "cue_high": "stay a bit taller through prep"
+            },
+            {
+              "id": "trunk_tilt",
+              "ideal": [
+                1.9,
+                13.1
+              ],
+              "weight": 0.1,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "stand a little more upright",
+              "cue_high": "lean into the court slightly"
+            }
+          ]
+        },
+        "backswing": {
+          "metrics": [
+            {
+              "id": "elbow_angle",
+              "ideal": [
+                96.2,
+                133.8
+              ],
+              "weight": 0.2,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "let the arm relax back further",
+              "cue_high": "keep the takeback more compact"
+            },
+            {
+              "id": "hip_shoulder_sep",
+              "ideal": [
+                18.1,
+                36.9
+              ],
+              "weight": 0.25,
+              "views": [
+                "front",
+                "back"
+              ],
+              "cue_low": "coil hips and shoulders together more",
+              "cue_high": "ease the coil \u2014 you're over-rotating"
+            }
+          ]
+        },
+        "contact": {
+          "metrics": [
+            {
+              "id": "elbow_angle",
+              "ideal": [
+                124.4,
+                150.6
+              ],
+              "weight": 0.3,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "extend through contact \u2014 arm's too bent",
+              "cue_high": "soften the elbow slightly at contact"
+            },
+            {
+              "id": "contact_in_front",
+              "ideal": [
+                0.2,
+                0.5
+              ],
+              "weight": 0.3,
+              "views": [
+                "side_left",
+                "side_right",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "meet the ball further out in front",
+              "cue_high": "let the ball come to you a touch"
+            },
+            {
+              "id": "knee_flexion",
+              "ideal": [
+                133.8,
+                156.2
+              ],
+              "weight": 0.15,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "drive up from the legs at contact",
+              "cue_high": "stay grounded through the hit"
+            }
+          ]
+        },
+        "follow_through": {
+          "metrics": [
+            {
+              "id": "wrist_finish_height",
+              "ideal": [
+                1.0,
+                1.7
+              ],
+              "weight": 0.25,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "finish higher \u2014 over the shoulder",
+              "cue_high": "relax the finish, let it wrap"
+            },
+            {
+              "id": "trunk_tilt",
+              "ideal": [
+                2.5,
+                17.5
+              ],
+              "weight": 0.1,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "stay balanced \u2014 don't fall away",
+              "cue_high": "stay balanced \u2014 don't fall away"
+            }
+          ]
+        }
+      },
+      "timing": {
+        "prep_before_contact_ms": [
+          600,
+          1200
+        ]
+      }
+    }
+  }
+}
