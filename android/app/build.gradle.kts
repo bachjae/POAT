@@ -9,6 +9,13 @@ android {
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
+    androidResources {
+        // Large model assets must stay uncompressed: AssetManager cannot
+        // open compressed entries this big, and the chunks are reassembled
+        // by streaming reads.
+        noCompress += listOf("tflite", "litertlm", "chunk0", "chunk1", "chunk2")
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -19,7 +26,9 @@ android {
         applicationId = "com.rallycoach.rallycoach"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // tflite_flutter requires 26; flutter_gemma's LiteRT-LM also
+        // assumes modern NNAPI/OpenCL stacks.
+        minSdk = 26
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
