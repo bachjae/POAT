@@ -24,21 +24,19 @@ tasks.register<Delete>("clean") {
 }
 
 // Some plugin modules (tflite_flutter) still declare Java 11 while Kotlin
-// compiles against the toolchain JDK, which AGP rejects as inconsistent.
-// Pin every subproject's Java AND Kotlin bytecode target to 17.
+// compiles against the toolchain JDK, which the Kotlin plugin rejects as
+// inconsistent. Pin the bytecode target of every Java and Kotlin compile
+// TASK to 17 — task-level config survives evaluationDependsOn(":app")
+// having already finalized the AGP DSL.
 subprojects {
-    afterEvaluate {
-        extensions.findByName("android")?.let { ext ->
-            (ext as com.android.build.gradle.BaseExtension).compileOptions.apply {
-                sourceCompatibility = JavaVersion.VERSION_17
-                targetCompatibility = JavaVersion.VERSION_17
-            }
-        }
-        tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java)
-            .configureEach {
-                compilerOptions.jvmTarget.set(
-                    org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
-                )
-            }
+    tasks.withType(JavaCompile::class.java).configureEach {
+        sourceCompatibility = JavaVersion.VERSION_17.toString()
+        targetCompatibility = JavaVersion.VERSION_17.toString()
     }
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java)
+        .configureEach {
+            compilerOptions.jvmTarget.set(
+                org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+            )
+        }
 }
