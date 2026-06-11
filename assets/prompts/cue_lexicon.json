@@ -1,0 +1,120 @@
+{
+  "lexicon": {
+    "elbow": [
+      "elbow_angle"
+    ],
+    "arm": [
+      "elbow_angle"
+    ],
+    "extend": [
+      "elbow_angle"
+    ],
+    "extension": [
+      "elbow_angle"
+    ],
+    "shoulder": [
+      "shoulder_turn",
+      "hip_shoulder_sep"
+    ],
+    "turn": [
+      "shoulder_turn",
+      "hip_shoulder_sep"
+    ],
+    "coil": [
+      "shoulder_turn",
+      "hip_shoulder_sep"
+    ],
+    "rotate": [
+      "shoulder_turn",
+      "hip_shoulder_sep"
+    ],
+    "knee": [
+      "knee_flexion"
+    ],
+    "knees": [
+      "knee_flexion"
+    ],
+    "legs": [
+      "knee_flexion"
+    ],
+    "low": [
+      "knee_flexion"
+    ],
+    "lower": [
+      "knee_flexion"
+    ],
+    "front": [
+      "contact_in_front"
+    ],
+    "early": [
+      "contact_in_front",
+      "prep_before_contact_ms"
+    ],
+    "earlier": [
+      "contact_in_front",
+      "prep_before_contact_ms"
+    ],
+    "late": [
+      "prep_before_contact_ms"
+    ],
+    "rush": [
+      "prep_before_contact_ms"
+    ],
+    "prep": [
+      "prep_before_contact_ms"
+    ],
+    "preparation": [
+      "prep_before_contact_ms"
+    ],
+    "finish": [
+      "wrist_finish_height"
+    ],
+    "follow": [
+      "wrist_finish_height"
+    ],
+    "balance": [
+      "trunk_tilt"
+    ],
+    "balanced": [
+      "trunk_tilt"
+    ],
+    "upright": [
+      "trunk_tilt"
+    ],
+    "lean": [
+      "trunk_tilt"
+    ],
+    "reach": [
+      "contact_height",
+      "elbow_angle"
+    ],
+    "higher": [
+      "contact_height",
+      "wrist_finish_height"
+    ],
+    "contact": [
+      "contact_in_front",
+      "contact_height",
+      "elbow_angle"
+    ],
+    "split": [
+      "split_step_rate"
+    ],
+    "stance": [
+      "stance_width"
+    ],
+    "base": [
+      "stance_width"
+    ],
+    "wider": [
+      "stance_width"
+    ],
+    "recover": [
+      "recovery_steps"
+    ],
+    "recovery": [
+      "recovery_steps"
+    ]
+  },
+  "max_words": 14
+}
