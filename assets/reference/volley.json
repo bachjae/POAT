@@ -1,0 +1,335 @@
+{
+  "stroke": "volley",
+  "skill_levels": {
+    "beginner": {
+      "phases": {
+        "preparation": {
+          "metrics": [
+            {
+              "id": "knee_flexion",
+              "ideal": [
+                111.2,
+                163.8
+              ],
+              "weight": 0.3,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "lower base \u2014 bend the knees at net",
+              "cue_high": "stay a touch taller"
+            },
+            {
+              "id": "shoulder_turn",
+              "ideal": [
+                10.0,
+                70.0
+              ],
+              "weight": 0.25,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "small unit turn \u2014 set the shoulders",
+              "cue_high": "less turn \u2014 volleys are compact"
+            }
+          ]
+        },
+        "contact": {
+          "metrics": [
+            {
+              "id": "elbow_angle",
+              "ideal": [
+                110.0,
+                170.0
+              ],
+              "weight": 0.3,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "firmer arm \u2014 punch through the volley",
+              "cue_high": "soften slightly, don't lock out"
+            },
+            {
+              "id": "contact_in_front",
+              "ideal": [
+                0.1,
+                0.9
+              ],
+              "weight": 0.35,
+              "views": [
+                "side_left",
+                "side_right",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "take it earlier, out in front",
+              "cue_high": "let it come to you a touch"
+            }
+          ]
+        },
+        "follow_through": {
+          "metrics": [
+            {
+              "id": "wrist_finish_height",
+              "ideal": [
+                0.4,
+                1.6
+              ],
+              "weight": 0.2,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "hold the finish \u2014 no big swing",
+              "cue_high": "shorten the follow-through, it's a punch"
+            }
+          ]
+        }
+      },
+      "timing": {
+        "prep_before_contact_ms": [
+          250,
+          700
+        ]
+      }
+    },
+    "intermediate": {
+      "phases": {
+        "preparation": {
+          "metrics": [
+            {
+              "id": "knee_flexion",
+              "ideal": [
+                120.0,
+                155.0
+              ],
+              "weight": 0.3,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "lower base \u2014 bend the knees at net",
+              "cue_high": "stay a touch taller"
+            },
+            {
+              "id": "shoulder_turn",
+              "ideal": [
+                20.0,
+                60.0
+              ],
+              "weight": 0.25,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "small unit turn \u2014 set the shoulders",
+              "cue_high": "less turn \u2014 volleys are compact"
+            }
+          ]
+        },
+        "contact": {
+          "metrics": [
+            {
+              "id": "elbow_angle",
+              "ideal": [
+                120.0,
+                160.0
+              ],
+              "weight": 0.3,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "firmer arm \u2014 punch through the volley",
+              "cue_high": "soften slightly, don't lock out"
+            },
+            {
+              "id": "contact_in_front",
+              "ideal": [
+                0.2,
+                0.8
+              ],
+              "weight": 0.35,
+              "views": [
+                "side_left",
+                "side_right",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "take it earlier, out in front",
+              "cue_high": "let it come to you a touch"
+            }
+          ]
+        },
+        "follow_through": {
+          "metrics": [
+            {
+              "id": "wrist_finish_height",
+              "ideal": [
+                0.6,
+                1.4
+              ],
+              "weight": 0.2,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "hold the finish \u2014 no big swing",
+              "cue_high": "shorten the follow-through, it's a punch"
+            }
+          ]
+        }
+      },
+      "timing": {
+        "prep_before_contact_ms": [
+          250,
+          700
+        ]
+      }
+    },
+    "advanced": {
+      "phases": {
+        "preparation": {
+          "metrics": [
+            {
+              "id": "knee_flexion",
+              "ideal": [
+                124.4,
+                150.6
+              ],
+              "weight": 0.3,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "lower base \u2014 bend the knees at net",
+              "cue_high": "stay a touch taller"
+            },
+            {
+              "id": "shoulder_turn",
+              "ideal": [
+                25.0,
+                55.0
+              ],
+              "weight": 0.25,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "small unit turn \u2014 set the shoulders",
+              "cue_high": "less turn \u2014 volleys are compact"
+            }
+          ]
+        },
+        "contact": {
+          "metrics": [
+            {
+              "id": "elbow_angle",
+              "ideal": [
+                125.0,
+                155.0
+              ],
+              "weight": 0.3,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "firmer arm \u2014 punch through the volley",
+              "cue_high": "soften slightly, don't lock out"
+            },
+            {
+              "id": "contact_in_front",
+              "ideal": [
+                0.3,
+                0.7
+              ],
+              "weight": 0.35,
+              "views": [
+                "side_left",
+                "side_right",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "take it earlier, out in front",
+              "cue_high": "let it come to you a touch"
+            }
+          ]
+        },
+        "follow_through": {
+          "metrics": [
+            {
+              "id": "wrist_finish_height",
+              "ideal": [
+                0.7,
+                1.3
+              ],
+              "weight": 0.2,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "hold the finish \u2014 no big swing",
+              "cue_high": "shorten the follow-through, it's a punch"
+            }
+          ]
+        }
+      },
+      "timing": {
+        "prep_before_contact_ms": [
+          250,
+          700
+        ]
+      }
+    }
+  }
+}

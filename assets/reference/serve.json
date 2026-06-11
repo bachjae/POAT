@@ -1,0 +1,461 @@
+{
+  "stroke": "serve",
+  "skill_levels": {
+    "beginner": {
+      "phases": {
+        "preparation": {
+          "metrics": [
+            {
+              "id": "knee_flexion",
+              "ideal": [
+                96.2,
+                148.8
+              ],
+              "weight": 0.3,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "deeper knee bend before you launch",
+              "cue_high": "less knee bend \u2014 stay springy"
+            },
+            {
+              "id": "trunk_tilt",
+              "ideal": [
+                -7.5,
+                37.5
+              ],
+              "weight": 0.15,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "tilt up into the toss more",
+              "cue_high": "keep the tilt under control"
+            }
+          ]
+        },
+        "backswing": {
+          "metrics": [
+            {
+              "id": "elbow_angle",
+              "ideal": [
+                60.0,
+                120.0
+              ],
+              "weight": 0.3,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "drop the racket head deeper",
+              "cue_high": "keep the trophy elbow compact"
+            },
+            {
+              "id": "shoulder_turn",
+              "ideal": [
+                50.0,
+                110.0
+              ],
+              "weight": 0.2,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "turn the shoulders away more in the trophy",
+              "cue_high": "ease the shoulder coil"
+            }
+          ]
+        },
+        "contact": {
+          "metrics": [
+            {
+              "id": "elbow_angle",
+              "ideal": [
+                142.5,
+                187.5
+              ],
+              "weight": 0.35,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "reach up \u2014 full extension at contact",
+              "cue_high": "reach up \u2014 full extension at contact"
+            },
+            {
+              "id": "contact_height",
+              "ideal": [
+                1.7,
+                2.8
+              ],
+              "weight": 0.25,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "contact higher \u2014 stretch for it",
+              "cue_high": "let contact settle a touch lower"
+            }
+          ]
+        },
+        "follow_through": {
+          "metrics": [
+            {
+              "id": "trunk_tilt",
+              "ideal": [
+                -10.0,
+                50.0
+              ],
+              "weight": 0.2,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "drive the chest through the court",
+              "cue_high": "stay tall through the finish"
+            }
+          ]
+        }
+      },
+      "timing": {
+        "prep_before_contact_ms": [
+          800,
+          1600
+        ]
+      }
+    },
+    "intermediate": {
+      "phases": {
+        "preparation": {
+          "metrics": [
+            {
+              "id": "knee_flexion",
+              "ideal": [
+                105.0,
+                140.0
+              ],
+              "weight": 0.3,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "deeper knee bend before you launch",
+              "cue_high": "less knee bend \u2014 stay springy"
+            },
+            {
+              "id": "trunk_tilt",
+              "ideal": [
+                0.0,
+                30.0
+              ],
+              "weight": 0.15,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "tilt up into the toss more",
+              "cue_high": "keep the tilt under control"
+            }
+          ]
+        },
+        "backswing": {
+          "metrics": [
+            {
+              "id": "elbow_angle",
+              "ideal": [
+                70.0,
+                110.0
+              ],
+              "weight": 0.3,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "drop the racket head deeper",
+              "cue_high": "keep the trophy elbow compact"
+            },
+            {
+              "id": "shoulder_turn",
+              "ideal": [
+                60.0,
+                100.0
+              ],
+              "weight": 0.2,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "turn the shoulders away more in the trophy",
+              "cue_high": "ease the shoulder coil"
+            }
+          ]
+        },
+        "contact": {
+          "metrics": [
+            {
+              "id": "elbow_angle",
+              "ideal": [
+                150.0,
+                180.0
+              ],
+              "weight": 0.35,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "reach up \u2014 full extension at contact",
+              "cue_high": "reach up \u2014 full extension at contact"
+            },
+            {
+              "id": "contact_height",
+              "ideal": [
+                1.9,
+                2.6
+              ],
+              "weight": 0.25,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "contact higher \u2014 stretch for it",
+              "cue_high": "let contact settle a touch lower"
+            }
+          ]
+        },
+        "follow_through": {
+          "metrics": [
+            {
+              "id": "trunk_tilt",
+              "ideal": [
+                0.0,
+                40.0
+              ],
+              "weight": 0.2,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "drive the chest through the court",
+              "cue_high": "stay tall through the finish"
+            }
+          ]
+        }
+      },
+      "timing": {
+        "prep_before_contact_ms": [
+          800,
+          1600
+        ]
+      }
+    },
+    "advanced": {
+      "phases": {
+        "preparation": {
+          "metrics": [
+            {
+              "id": "knee_flexion",
+              "ideal": [
+                109.4,
+                135.6
+              ],
+              "weight": 0.3,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "deeper knee bend before you launch",
+              "cue_high": "less knee bend \u2014 stay springy"
+            },
+            {
+              "id": "trunk_tilt",
+              "ideal": [
+                3.8,
+                26.2
+              ],
+              "weight": 0.15,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "tilt up into the toss more",
+              "cue_high": "keep the tilt under control"
+            }
+          ]
+        },
+        "backswing": {
+          "metrics": [
+            {
+              "id": "elbow_angle",
+              "ideal": [
+                75.0,
+                105.0
+              ],
+              "weight": 0.3,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "drop the racket head deeper",
+              "cue_high": "keep the trophy elbow compact"
+            },
+            {
+              "id": "shoulder_turn",
+              "ideal": [
+                65.0,
+                95.0
+              ],
+              "weight": 0.2,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "turn the shoulders away more in the trophy",
+              "cue_high": "ease the shoulder coil"
+            }
+          ]
+        },
+        "contact": {
+          "metrics": [
+            {
+              "id": "elbow_angle",
+              "ideal": [
+                153.8,
+                176.2
+              ],
+              "weight": 0.35,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "reach up \u2014 full extension at contact",
+              "cue_high": "reach up \u2014 full extension at contact"
+            },
+            {
+              "id": "contact_height",
+              "ideal": [
+                2.0,
+                2.5
+              ],
+              "weight": 0.25,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "contact higher \u2014 stretch for it",
+              "cue_high": "let contact settle a touch lower"
+            }
+          ]
+        },
+        "follow_through": {
+          "metrics": [
+            {
+              "id": "trunk_tilt",
+              "ideal": [
+                5.0,
+                35.0
+              ],
+              "weight": 0.2,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "drive the chest through the court",
+              "cue_high": "stay tall through the finish"
+            }
+          ]
+        }
+      },
+      "timing": {
+        "prep_before_contact_ms": [
+          800,
+          1600
+        ]
+      }
+    }
+  }
+}
