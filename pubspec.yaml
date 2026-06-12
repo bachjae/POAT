@@ -32,6 +32,9 @@ dependencies:
   path_provider: ^2.1.5
   crypto: ^3.0.7
 
+  # Runtime permission requests (camera)
+  permission_handler: ^11.4.0
+
   # Progress charts
   fl_chart: ^1.2.0
 
