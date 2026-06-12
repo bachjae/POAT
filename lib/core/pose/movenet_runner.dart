@@ -45,14 +45,14 @@ class MoveNetRunner {
         variant, interpreter, isolate, inputType == TensorType.float32);
   }
 
-  /// Runs pose estimation on an RGB frame already scaled to the model input
-  /// size. Returns image-space keypoints for the ORIGINAL frame dimensions.
+  /// Runs pose estimation on a letterboxed upright frame. Returns keypoints
+  /// in UPRIGHT source coordinates (rotation + letterbox undone), so they
+  /// overlay the preview and feed the engine in the player's real geometry.
   Future<PoseFrame> estimate(
-    RgbImage rgb, {
+    ConvertedFrame frame, {
     required int timestampMs,
-    required int sourceWidth,
-    required int sourceHeight,
   }) async {
+    final rgb = frame.image;
     final size = variant.inputSize;
     final Object input;
     if (_inputIsFloat) {
@@ -71,8 +71,8 @@ class MoveNetRunner {
     final kp = <List<double>>[
       for (var i = 0; i < 17; i++)
         [
-          output[0][0][i][1] * sourceWidth,
-          output[0][0][i][0] * sourceHeight,
+          ((output[0][0][i][1] * size) - frame.padX) / frame.scale,
+          ((output[0][0][i][0] * size) - frame.padY) / frame.scale,
           output[0][0][i][2],
         ],
     ];

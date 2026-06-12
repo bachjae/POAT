@@ -1,13 +1,18 @@
 /// Incremental, live version of the batch engine pipeline.
 ///
 /// Consumes raw [PoseFrame]s one at a time, maintains a rolling normalized
-/// window, and emits a [ShotEvent] once a complete swing window (±45 frames
-/// around the wrist-speed peak) is available. Also tracks player visibility
-/// and the rolling majority view bucket, and runs 10-second footwork windows
-/// for footwork sessions.
+/// window, and emits a [ShotEvent] once a complete swing window (±1.5s
+/// around the wrist-speed peak) is available. Swing windows are specified
+/// in MILLISECONDS and converted to frame counts from the observed frame
+/// cadence, so detection behaves identically at 10, 15, 24 or 30 fps (the
+/// camera throttles fps thermally; frame-count windows silently doubled in
+/// duration at low fps). Also tracks player visibility and the rolling
+/// majority view bucket, and runs 10-second footwork windows for footwork
+/// sessions.
 library;
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import '../engine/cue_prioritizer.dart';
 import '../engine/engine_types.dart';
@@ -57,8 +62,9 @@ class ShotStreamProcessor {
     this.bufferFrames = 200,
     this.detectEvery = 5,
     this.lostAfterFrames = 15,
-    this.shotWindow = 45,
-    this.postWindow = 30,
+    this.shotWindowMs = 1500,
+    this.postWindowMs = 1000,
+    this.minGapMs = 1000,
     this.footworkWindowMs = 10000,
   });
 
@@ -70,22 +76,44 @@ class ShotStreamProcessor {
   final int bufferFrames;
   final int detectEvery;
   final int lostAfterFrames;
-  final int shotWindow;
 
-  /// Frames required after the peak before a shot is emitted. The
-  /// follow-through completes within ~20 frames, so 30 keeps the measured
+  /// Half-width of the swing window around the wrist-speed peak.
+  final int shotWindowMs;
+
+  /// Time required after the peak before a shot is emitted. The
+  /// follow-through completes within ~700ms, so 1s keeps the measured
   /// metrics identical to the batch pipeline while the cue still lands
   /// about a second after contact.
-  final int postWindow;
+  final int postWindowMs;
+
+  /// Minimum separation between two detected peaks.
+  final int minGapMs;
   final int footworkWindowMs;
+
+  /// EMA of the inter-frame interval; 33ms (30fps) until measured. Single
+  /// outliers are clamped so a dropped frame doesn't stretch the windows.
+  double _dtEmaMs = 33.0;
+
+  int _msToFrames(int ms, int lo, int hi) =>
+      (ms / _dtEmaMs).round().clamp(lo, hi);
+
+  int get _shotWindowFrames => _msToFrames(shotWindowMs, 8, 120);
+  int get _postWindowFrames => _msToFrames(postWindowMs, 5, 90);
+  int get _minGapFrames => _msToFrames(minGapMs, 5, 90);
 
   final _shots = StreamController<ShotEvent>.broadcast();
   final _footwork = StreamController<FootworkEvent>.broadcast();
   final _visibility = StreamController<PlayerVisibility>.broadcast();
+  final _swinging = StreamController<bool>.broadcast();
 
   Stream<ShotEvent> get shots => _shots.stream;
   Stream<FootworkEvent> get footworkWindows => _footwork.stream;
   Stream<PlayerVisibility> get visibility => _visibility.stream;
+
+  /// True while the wrist is moving at swing speed; false once it has been
+  /// calm again for a few frames. Drives the TTS swing mute (SPEC §8) so
+  /// the coach never talks over a stroke.
+  Stream<bool> get swinging => _swinging.stream;
 
   final List<TimedKeypoints> _buffer = [];
   final List<double> _rawHipX = [];
@@ -99,6 +127,14 @@ class ShotStreamProcessor {
   int _footworkWindowStartTs = -1;
   int _footworkStartIndex = 0;
   PlayerVisibility _currentVisibility = PlayerVisibility.searching;
+
+  /// Swing-mute hysteresis: enter at shot-detector speed, leave after the
+  /// wrist stays calm for [_swingCalmFramesNeeded] consecutive frames.
+  static const double _swingStartSpeed = 6.0;
+  static const double _swingEndSpeed = 2.0;
+  static const int _swingCalmFramesNeeded = 6;
+  bool _swingActive = false;
+  int _swingCalmFrames = 0;
 
   ViewBucket get majorityView {
     String? best;
@@ -134,6 +170,13 @@ class ShotStreamProcessor {
     _setVisibility(PlayerVisibility.locked);
 
     final kp = leftHanded ? mirrorNormalized(n.keypoints) : n.keypoints;
+    if (_buffer.isNotEmpty) {
+      final dt = (n.timestampMs - _buffer.last.timestampMs)
+          .clamp(10, 200)
+          .toDouble();
+      _dtEmaMs += 0.1 * (dt - _dtEmaMs);
+      _trackSwing(_buffer.last, n.timestampMs, kp);
+    }
     _buffer.add(TimedKeypoints(timestampMs: n.timestampMs, keypoints: kp));
     final hipMidX =
         (frame.keypoints[Kp.leftHip][0] + frame.keypoints[Kp.rightHip][0]) /
@@ -170,13 +213,41 @@ class ShotStreamProcessor {
     }
   }
 
+  void _trackSwing(
+      TimedKeypoints prev, int timestampMs, List<List<double>> kp) {
+    final dtS = (timestampMs - prev.timestampMs) / 1000.0;
+    if (dtS <= 0) return;
+    final a = prev.keypoints[Kp.rightWrist];
+    final b = kp[Kp.rightWrist];
+    final dx = b[0] - a[0], dy = b[1] - a[1];
+    final speed = math.sqrt(dx * dx + dy * dy) / dtS;
+    if (!_swingActive) {
+      if (speed >= _swingStartSpeed) {
+        _swingActive = true;
+        _swingCalmFrames = 0;
+        if (!_swinging.isClosed) _swinging.add(true);
+      }
+      return;
+    }
+    if (speed < _swingEndSpeed) {
+      _swingCalmFrames++;
+      if (_swingCalmFrames >= _swingCalmFramesNeeded) {
+        _swingActive = false;
+        if (!_swinging.isClosed) _swinging.add(false);
+      }
+    } else {
+      _swingCalmFrames = 0;
+    }
+  }
+
   void _detect() {
-    final shots = detectShots(_buffer, window: shotWindow);
+    final shots = detectShots(_buffer,
+        window: _shotWindowFrames, minGap: _minGapFrames);
     for (final shot in shots) {
       final peakTs = _buffer[shot.peak].timestampMs;
       if (peakTs <= _lastEmittedPeakTs) continue;
       // Wait until enough post-peak frames have arrived.
-      if (shot.peak + postWindow > _buffer.length - 1) continue;
+      if (shot.peak + _postWindowFrames > _buffer.length - 1) continue;
       _lastEmittedPeakTs = peakTs;
 
       final stroke = classifyShot(_buffer, shot);
@@ -247,5 +318,6 @@ class ShotStreamProcessor {
     await _shots.close();
     await _footwork.close();
     await _visibility.close();
+    await _swinging.close();
   }
 }
