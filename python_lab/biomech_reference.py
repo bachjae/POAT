@@ -238,13 +238,37 @@ TIMING = {
 WIDEN = {"beginner": 1.5, "intermediate": 1.0, "advanced": 0.75}
 
 
+# Serve toss metrics measured at the bimanual divergence peak (left wrist
+# height / left-right wrist gap, torso units). Hand-calibrated per tier —
+# the generic WIDEN factors over-stretch these short bands, so they bypass
+# scale_ranges.
+SERVE_TOSS_BY_TIER = {
+    "beginner": {"toss_height": [0.6, 2.0], "wrist_divergence": [0.2, 1.2]},
+    "intermediate": {"toss_height": [0.7, 1.9], "wrist_divergence": [0.3, 1.1]},
+    "advanced": {"toss_height": [0.8, 1.8], "wrist_divergence": [0.35, 1.0]},
+}
+
+
 def build(stroke, phases):
     doc = {"stroke": stroke, "skill_levels": {}}
     for tier, widen in WIDEN.items():
-        doc["skill_levels"][tier] = {
+        node = {
             "phases": scale_ranges(phases, widen),
             "timing": TIMING.get(stroke, {}),
         }
+        if stroke == "serve":
+            bands = SERVE_TOSS_BY_TIER[tier]
+            node["phases"]["preparation"]["metrics"] += [
+                m("toss_height", bands["toss_height"], 0.25, ALL_VIEWS,
+                  "toss the ball higher — reach up on the release",
+                  "toss slightly lower and in front"),
+                # Left/right wrist separation collapses in side projection.
+                m("wrist_divergence", bands["wrist_divergence"], 0.15,
+                  ["front", "diagonal_left", "diagonal_right"],
+                  "separate the tossing arm from the racket arm earlier",
+                  "keep the toss synchronized with the trophy position"),
+            ]
+        doc["skill_levels"][tier] = node
     return doc
 
 

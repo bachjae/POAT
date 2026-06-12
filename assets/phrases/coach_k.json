@@ -344,13 +344,13 @@
       "visible, start hitting"
     ],
     "system:lost_you": [
-      "I lost you \u2014 step back into frame",
+      "I lost you — step back into frame",
       "out of frame, fix it",
       "can't coach what I can't see",
       "step back in, now"
     ],
     "system:paused": [
-      "Paused \u2014 step back in when ready",
+      "Paused — step back in when ready",
       "paused, return when serious",
       "on hold, your call",
       "paused, clock's still running"
@@ -377,6 +377,36 @@
       "switch to {stroke}.",
       "next: {stroke}.",
       "{stroke} now, move."
+    ],
+    "milestone:best": [
+      "session best, that's the standard",
+      "new best, now repeat it",
+      "best of the day, hold that bar",
+      "that's the benchmark now"
+    ],
+    "milestone:streak": [
+      "clean streak, don't break it",
+      "stacking clean reps, keep going",
+      "streak's alive, stay disciplined",
+      "consecutive clean shots, that's work"
+    ],
+    "checkin:up": [
+      "check: {avg} average, climbing, more",
+      "{avg} and rising, earn the rest",
+      "at {avg}, trend's up, push on",
+      "averaging {avg}, up — don't coast"
+    ],
+    "checkin:down": [
+      "{avg} average, slipping — tighten up",
+      "at {avg}, trend's down, fix it",
+      "averaging {avg} and fading, refocus now",
+      "{avg}, dropping — back to basics"
+    ],
+    "checkin:steady": [
+      "{avg} average, flat — raise it",
+      "holding {avg}, now push past it",
+      "steady at {avg}, next level now",
+      "at {avg}, stable — demand more"
     ]
   }
 }

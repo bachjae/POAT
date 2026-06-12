@@ -187,6 +187,18 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     requiredDuringInsert: false,
     defaultValue: const Constant('[]'),
   );
+  static const VerificationMeta _insightsMeta = const VerificationMeta(
+    'insights',
+  );
+  @override
+  late final GeneratedColumn<String> insights = GeneratedColumn<String>(
+    'insights',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -205,6 +217,7 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     encouragement,
     highlights,
     strokeSequence,
+    insights,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -337,10 +350,7 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     if (data.containsKey('highlights')) {
       context.handle(
         _highlightsMeta,
-        highlights.isAcceptableOrUnknown(
-          data['highlights']!,
-          _highlightsMeta,
-        ),
+        highlights.isAcceptableOrUnknown(data['highlights']!, _highlightsMeta),
       );
     }
     if (data.containsKey('stroke_sequence')) {
@@ -350,6 +360,12 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
           data['stroke_sequence']!,
           _strokeSequenceMeta,
         ),
+      );
+    }
+    if (data.containsKey('insights')) {
+      context.handle(
+        _insightsMeta,
+        insights.isAcceptableOrUnknown(data['insights']!, _insightsMeta),
       );
     }
     return context;
@@ -425,6 +441,10 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         DriftSqlType.string,
         data['${effectivePrefix}stroke_sequence'],
       )!,
+      insights: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}insights'],
+      )!,
     );
   }
 
@@ -463,8 +483,13 @@ class Session extends DataClass implements Insertable<Session> {
   /// JSON array of {tOffsetMs, shotIndex} bookmarks from the live screen.
   final String highlights;
 
-  /// JSON array of stroke ids for multi-stroke sequences.
+  /// JSON array of stroke ids for multi-stroke sequences, e.g.
+  /// ['forehand','backhand']. Empty array means single-stroke session.
   final String strokeSequence;
+
+  /// JSON-serialized [SessionInsights]: stroke/phase/metric breakdowns,
+  /// timeline, consistency, streaks. Empty string on pre-v4 rows.
+  final String insights;
   const Session({
     required this.id,
     required this.startedAt,
@@ -482,6 +507,7 @@ class Session extends DataClass implements Insertable<Session> {
     required this.encouragement,
     required this.highlights,
     required this.strokeSequence,
+    required this.insights,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -502,6 +528,7 @@ class Session extends DataClass implements Insertable<Session> {
     map['encouragement'] = Variable<String>(encouragement);
     map['highlights'] = Variable<String>(highlights);
     map['stroke_sequence'] = Variable<String>(strokeSequence);
+    map['insights'] = Variable<String>(insights);
     return map;
   }
 
@@ -523,6 +550,7 @@ class Session extends DataClass implements Insertable<Session> {
       encouragement: Value(encouragement),
       highlights: Value(highlights),
       strokeSequence: Value(strokeSequence),
+      insights: Value(insights),
     );
   }
 
@@ -548,6 +576,7 @@ class Session extends DataClass implements Insertable<Session> {
       encouragement: serializer.fromJson<String>(json['encouragement']),
       highlights: serializer.fromJson<String>(json['highlights']),
       strokeSequence: serializer.fromJson<String>(json['strokeSequence']),
+      insights: serializer.fromJson<String>(json['insights']),
     );
   }
   @override
@@ -570,6 +599,7 @@ class Session extends DataClass implements Insertable<Session> {
       'encouragement': serializer.toJson<String>(encouragement),
       'highlights': serializer.toJson<String>(highlights),
       'strokeSequence': serializer.toJson<String>(strokeSequence),
+      'insights': serializer.toJson<String>(insights),
     };
   }
 
@@ -590,6 +620,7 @@ class Session extends DataClass implements Insertable<Session> {
     String? encouragement,
     String? highlights,
     String? strokeSequence,
+    String? insights,
   }) => Session(
     id: id ?? this.id,
     startedAt: startedAt ?? this.startedAt,
@@ -607,6 +638,7 @@ class Session extends DataClass implements Insertable<Session> {
     encouragement: encouragement ?? this.encouragement,
     highlights: highlights ?? this.highlights,
     strokeSequence: strokeSequence ?? this.strokeSequence,
+    insights: insights ?? this.insights,
   );
   Session copyWithCompanion(SessionsCompanion data) {
     return Session(
@@ -642,6 +674,7 @@ class Session extends DataClass implements Insertable<Session> {
       strokeSequence: data.strokeSequence.present
           ? data.strokeSequence.value
           : this.strokeSequence,
+      insights: data.insights.present ? data.insights.value : this.insights,
     );
   }
 
@@ -663,7 +696,8 @@ class Session extends DataClass implements Insertable<Session> {
           ..write('headline: $headline, ')
           ..write('encouragement: $encouragement, ')
           ..write('highlights: $highlights, ')
-          ..write('strokeSequence: $strokeSequence')
+          ..write('strokeSequence: $strokeSequence, ')
+          ..write('insights: $insights')
           ..write(')'))
         .toString();
   }
@@ -686,6 +720,7 @@ class Session extends DataClass implements Insertable<Session> {
     encouragement,
     highlights,
     strokeSequence,
+    insights,
   );
   @override
   bool operator ==(Object other) =>
@@ -706,7 +741,8 @@ class Session extends DataClass implements Insertable<Session> {
           other.headline == this.headline &&
           other.encouragement == this.encouragement &&
           other.highlights == this.highlights &&
-          other.strokeSequence == this.strokeSequence);
+          other.strokeSequence == this.strokeSequence &&
+          other.insights == this.insights);
 }
 
 class SessionsCompanion extends UpdateCompanion<Session> {
@@ -726,6 +762,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
   final Value<String> encouragement;
   final Value<String> highlights;
   final Value<String> strokeSequence;
+  final Value<String> insights;
   const SessionsCompanion({
     this.id = const Value.absent(),
     this.startedAt = const Value.absent(),
@@ -743,6 +780,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.encouragement = const Value.absent(),
     this.highlights = const Value.absent(),
     this.strokeSequence = const Value.absent(),
+    this.insights = const Value.absent(),
   });
   SessionsCompanion.insert({
     this.id = const Value.absent(),
@@ -761,6 +799,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.encouragement = const Value.absent(),
     this.highlights = const Value.absent(),
     this.strokeSequence = const Value.absent(),
+    this.insights = const Value.absent(),
   }) : startedAt = Value(startedAt),
        durationS = Value(durationS),
        type = Value(type),
@@ -788,6 +827,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Expression<String>? encouragement,
     Expression<String>? highlights,
     Expression<String>? strokeSequence,
+    Expression<String>? insights,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -806,6 +846,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
       if (encouragement != null) 'encouragement': encouragement,
       if (highlights != null) 'highlights': highlights,
       if (strokeSequence != null) 'stroke_sequence': strokeSequence,
+      if (insights != null) 'insights': insights,
     });
   }
 
@@ -826,6 +867,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Value<String>? encouragement,
     Value<String>? highlights,
     Value<String>? strokeSequence,
+    Value<String>? insights,
   }) {
     return SessionsCompanion(
       id: id ?? this.id,
@@ -844,6 +886,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
       encouragement: encouragement ?? this.encouragement,
       highlights: highlights ?? this.highlights,
       strokeSequence: strokeSequence ?? this.strokeSequence,
+      insights: insights ?? this.insights,
     );
   }
 
@@ -898,6 +941,9 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     if (strokeSequence.present) {
       map['stroke_sequence'] = Variable<String>(strokeSequence.value);
     }
+    if (insights.present) {
+      map['insights'] = Variable<String>(insights.value);
+    }
     return map;
   }
 
@@ -919,7 +965,8 @@ class SessionsCompanion extends UpdateCompanion<Session> {
           ..write('headline: $headline, ')
           ..write('encouragement: $encouragement, ')
           ..write('highlights: $highlights, ')
-          ..write('strokeSequence: $strokeSequence')
+          ..write('strokeSequence: $strokeSequence, ')
+          ..write('insights: $insights')
           ..write(')'))
         .toString();
   }
@@ -998,6 +1045,18 @@ class $ShotStatsTable extends ShotStats
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _deviationsMeta = const VerificationMeta(
+    'deviations',
+  );
+  @override
+  late final GeneratedColumn<String> deviations = GeneratedColumn<String>(
+    'deviations',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
   static const VerificationMeta _tOffsetMsMeta = const VerificationMeta(
     'tOffsetMs',
   );
@@ -1017,6 +1076,7 @@ class $ShotStatsTable extends ShotStats
     score,
     phaseScores,
     topDeviationId,
+    deviations,
     tOffsetMs,
   ];
   @override
@@ -1078,6 +1138,12 @@ class $ShotStatsTable extends ShotStats
         ),
       );
     }
+    if (data.containsKey('deviations')) {
+      context.handle(
+        _deviationsMeta,
+        deviations.isAcceptableOrUnknown(data['deviations']!, _deviationsMeta),
+      );
+    }
     if (data.containsKey('t_offset_ms')) {
       context.handle(
         _tOffsetMsMeta,
@@ -1119,6 +1185,10 @@ class $ShotStatsTable extends ShotStats
         DriftSqlType.string,
         data['${effectivePrefix}top_deviation_id'],
       ),
+      deviations: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}deviations'],
+      )!,
       tOffsetMs: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}t_offset_ms'],
@@ -1142,6 +1212,10 @@ class ShotStat extends DataClass implements Insertable<ShotStat> {
   final String phaseScores;
   final String? topDeviationId;
 
+  /// JSON array of every deviation on this shot:
+  /// [{id, phase, direction, severity}]. '[]' on pre-v4 rows.
+  final String deviations;
+
   /// Milliseconds from session start to this shot's contact.
   final int tOffsetMs;
   const ShotStat({
@@ -1151,6 +1225,7 @@ class ShotStat extends DataClass implements Insertable<ShotStat> {
     required this.score,
     required this.phaseScores,
     this.topDeviationId,
+    required this.deviations,
     required this.tOffsetMs,
   });
   @override
@@ -1164,6 +1239,7 @@ class ShotStat extends DataClass implements Insertable<ShotStat> {
     if (!nullToAbsent || topDeviationId != null) {
       map['top_deviation_id'] = Variable<String>(topDeviationId);
     }
+    map['deviations'] = Variable<String>(deviations);
     map['t_offset_ms'] = Variable<int>(tOffsetMs);
     return map;
   }
@@ -1178,6 +1254,7 @@ class ShotStat extends DataClass implements Insertable<ShotStat> {
       topDeviationId: topDeviationId == null && nullToAbsent
           ? const Value.absent()
           : Value(topDeviationId),
+      deviations: Value(deviations),
       tOffsetMs: Value(tOffsetMs),
     );
   }
@@ -1194,6 +1271,7 @@ class ShotStat extends DataClass implements Insertable<ShotStat> {
       score: serializer.fromJson<double>(json['score']),
       phaseScores: serializer.fromJson<String>(json['phaseScores']),
       topDeviationId: serializer.fromJson<String?>(json['topDeviationId']),
+      deviations: serializer.fromJson<String>(json['deviations']),
       tOffsetMs: serializer.fromJson<int>(json['tOffsetMs']),
     );
   }
@@ -1207,6 +1285,7 @@ class ShotStat extends DataClass implements Insertable<ShotStat> {
       'score': serializer.toJson<double>(score),
       'phaseScores': serializer.toJson<String>(phaseScores),
       'topDeviationId': serializer.toJson<String?>(topDeviationId),
+      'deviations': serializer.toJson<String>(deviations),
       'tOffsetMs': serializer.toJson<int>(tOffsetMs),
     };
   }
@@ -1218,6 +1297,7 @@ class ShotStat extends DataClass implements Insertable<ShotStat> {
     double? score,
     String? phaseScores,
     Value<String?> topDeviationId = const Value.absent(),
+    String? deviations,
     int? tOffsetMs,
   }) => ShotStat(
     id: id ?? this.id,
@@ -1228,6 +1308,7 @@ class ShotStat extends DataClass implements Insertable<ShotStat> {
     topDeviationId: topDeviationId.present
         ? topDeviationId.value
         : this.topDeviationId,
+    deviations: deviations ?? this.deviations,
     tOffsetMs: tOffsetMs ?? this.tOffsetMs,
   );
   ShotStat copyWithCompanion(ShotStatsCompanion data) {
@@ -1242,6 +1323,9 @@ class ShotStat extends DataClass implements Insertable<ShotStat> {
       topDeviationId: data.topDeviationId.present
           ? data.topDeviationId.value
           : this.topDeviationId,
+      deviations: data.deviations.present
+          ? data.deviations.value
+          : this.deviations,
       tOffsetMs: data.tOffsetMs.present ? data.tOffsetMs.value : this.tOffsetMs,
     );
   }
@@ -1255,6 +1339,7 @@ class ShotStat extends DataClass implements Insertable<ShotStat> {
           ..write('score: $score, ')
           ..write('phaseScores: $phaseScores, ')
           ..write('topDeviationId: $topDeviationId, ')
+          ..write('deviations: $deviations, ')
           ..write('tOffsetMs: $tOffsetMs')
           ..write(')'))
         .toString();
@@ -1268,6 +1353,7 @@ class ShotStat extends DataClass implements Insertable<ShotStat> {
     score,
     phaseScores,
     topDeviationId,
+    deviations,
     tOffsetMs,
   );
   @override
@@ -1280,6 +1366,7 @@ class ShotStat extends DataClass implements Insertable<ShotStat> {
           other.score == this.score &&
           other.phaseScores == this.phaseScores &&
           other.topDeviationId == this.topDeviationId &&
+          other.deviations == this.deviations &&
           other.tOffsetMs == this.tOffsetMs);
 }
 
@@ -1290,6 +1377,7 @@ class ShotStatsCompanion extends UpdateCompanion<ShotStat> {
   final Value<double> score;
   final Value<String> phaseScores;
   final Value<String?> topDeviationId;
+  final Value<String> deviations;
   final Value<int> tOffsetMs;
   const ShotStatsCompanion({
     this.id = const Value.absent(),
@@ -1298,6 +1386,7 @@ class ShotStatsCompanion extends UpdateCompanion<ShotStat> {
     this.score = const Value.absent(),
     this.phaseScores = const Value.absent(),
     this.topDeviationId = const Value.absent(),
+    this.deviations = const Value.absent(),
     this.tOffsetMs = const Value.absent(),
   });
   ShotStatsCompanion.insert({
@@ -1307,6 +1396,7 @@ class ShotStatsCompanion extends UpdateCompanion<ShotStat> {
     required double score,
     required String phaseScores,
     this.topDeviationId = const Value.absent(),
+    this.deviations = const Value.absent(),
     required int tOffsetMs,
   }) : sessionId = Value(sessionId),
        stroke = Value(stroke),
@@ -1320,6 +1410,7 @@ class ShotStatsCompanion extends UpdateCompanion<ShotStat> {
     Expression<double>? score,
     Expression<String>? phaseScores,
     Expression<String>? topDeviationId,
+    Expression<String>? deviations,
     Expression<int>? tOffsetMs,
   }) {
     return RawValuesInsertable({
@@ -1329,6 +1420,7 @@ class ShotStatsCompanion extends UpdateCompanion<ShotStat> {
       if (score != null) 'score': score,
       if (phaseScores != null) 'phase_scores': phaseScores,
       if (topDeviationId != null) 'top_deviation_id': topDeviationId,
+      if (deviations != null) 'deviations': deviations,
       if (tOffsetMs != null) 't_offset_ms': tOffsetMs,
     });
   }
@@ -1340,6 +1432,7 @@ class ShotStatsCompanion extends UpdateCompanion<ShotStat> {
     Value<double>? score,
     Value<String>? phaseScores,
     Value<String?>? topDeviationId,
+    Value<String>? deviations,
     Value<int>? tOffsetMs,
   }) {
     return ShotStatsCompanion(
@@ -1349,6 +1442,7 @@ class ShotStatsCompanion extends UpdateCompanion<ShotStat> {
       score: score ?? this.score,
       phaseScores: phaseScores ?? this.phaseScores,
       topDeviationId: topDeviationId ?? this.topDeviationId,
+      deviations: deviations ?? this.deviations,
       tOffsetMs: tOffsetMs ?? this.tOffsetMs,
     );
   }
@@ -1374,6 +1468,9 @@ class ShotStatsCompanion extends UpdateCompanion<ShotStat> {
     if (topDeviationId.present) {
       map['top_deviation_id'] = Variable<String>(topDeviationId.value);
     }
+    if (deviations.present) {
+      map['deviations'] = Variable<String>(deviations.value);
+    }
     if (tOffsetMs.present) {
       map['t_offset_ms'] = Variable<int>(tOffsetMs.value);
     }
@@ -1389,6 +1486,7 @@ class ShotStatsCompanion extends UpdateCompanion<ShotStat> {
           ..write('score: $score, ')
           ..write('phaseScores: $phaseScores, ')
           ..write('topDeviationId: $topDeviationId, ')
+          ..write('deviations: $deviations, ')
           ..write('tOffsetMs: $tOffsetMs')
           ..write(')'))
         .toString();
@@ -1920,6 +2018,404 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
   }
 }
 
+class $GoalsTable extends Goals with TableInfo<$GoalsTable, Goal> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $GoalsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _metricIdMeta = const VerificationMeta(
+    'metricId',
+  );
+  @override
+  late final GeneratedColumn<String> metricId = GeneratedColumn<String>(
+    'metric_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _strokeMeta = const VerificationMeta('stroke');
+  @override
+  late final GeneratedColumn<String> stroke = GeneratedColumn<String>(
+    'stroke',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _targetRateMeta = const VerificationMeta(
+    'targetRate',
+  );
+  @override
+  late final GeneratedColumn<double> targetRate = GeneratedColumn<double>(
+    'target_rate',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _activeMeta = const VerificationMeta('active');
+  @override
+  late final GeneratedColumn<bool> active = GeneratedColumn<bool>(
+    'active',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("active" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    metricId,
+    stroke,
+    targetRate,
+    createdAt,
+    active,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'goals';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Goal> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('metric_id')) {
+      context.handle(
+        _metricIdMeta,
+        metricId.isAcceptableOrUnknown(data['metric_id']!, _metricIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_metricIdMeta);
+    }
+    if (data.containsKey('stroke')) {
+      context.handle(
+        _strokeMeta,
+        stroke.isAcceptableOrUnknown(data['stroke']!, _strokeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_strokeMeta);
+    }
+    if (data.containsKey('target_rate')) {
+      context.handle(
+        _targetRateMeta,
+        targetRate.isAcceptableOrUnknown(data['target_rate']!, _targetRateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_targetRateMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('active')) {
+      context.handle(
+        _activeMeta,
+        active.isAcceptableOrUnknown(data['active']!, _activeMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Goal map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Goal(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      metricId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}metric_id'],
+      )!,
+      stroke: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}stroke'],
+      )!,
+      targetRate: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}target_rate'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      active: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}active'],
+      )!,
+    );
+  }
+
+  @override
+  $GoalsTable createAlias(String alias) {
+    return $GoalsTable(attachedDatabase, alias);
+  }
+}
+
+class Goal extends DataClass implements Insertable<Goal> {
+  final int id;
+  final String metricId;
+  final String stroke;
+  final double targetRate;
+  final DateTime createdAt;
+  final bool active;
+  const Goal({
+    required this.id,
+    required this.metricId,
+    required this.stroke,
+    required this.targetRate,
+    required this.createdAt,
+    required this.active,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['metric_id'] = Variable<String>(metricId);
+    map['stroke'] = Variable<String>(stroke);
+    map['target_rate'] = Variable<double>(targetRate);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['active'] = Variable<bool>(active);
+    return map;
+  }
+
+  GoalsCompanion toCompanion(bool nullToAbsent) {
+    return GoalsCompanion(
+      id: Value(id),
+      metricId: Value(metricId),
+      stroke: Value(stroke),
+      targetRate: Value(targetRate),
+      createdAt: Value(createdAt),
+      active: Value(active),
+    );
+  }
+
+  factory Goal.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Goal(
+      id: serializer.fromJson<int>(json['id']),
+      metricId: serializer.fromJson<String>(json['metricId']),
+      stroke: serializer.fromJson<String>(json['stroke']),
+      targetRate: serializer.fromJson<double>(json['targetRate']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      active: serializer.fromJson<bool>(json['active']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'metricId': serializer.toJson<String>(metricId),
+      'stroke': serializer.toJson<String>(stroke),
+      'targetRate': serializer.toJson<double>(targetRate),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'active': serializer.toJson<bool>(active),
+    };
+  }
+
+  Goal copyWith({
+    int? id,
+    String? metricId,
+    String? stroke,
+    double? targetRate,
+    DateTime? createdAt,
+    bool? active,
+  }) => Goal(
+    id: id ?? this.id,
+    metricId: metricId ?? this.metricId,
+    stroke: stroke ?? this.stroke,
+    targetRate: targetRate ?? this.targetRate,
+    createdAt: createdAt ?? this.createdAt,
+    active: active ?? this.active,
+  );
+  Goal copyWithCompanion(GoalsCompanion data) {
+    return Goal(
+      id: data.id.present ? data.id.value : this.id,
+      metricId: data.metricId.present ? data.metricId.value : this.metricId,
+      stroke: data.stroke.present ? data.stroke.value : this.stroke,
+      targetRate: data.targetRate.present
+          ? data.targetRate.value
+          : this.targetRate,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      active: data.active.present ? data.active.value : this.active,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Goal(')
+          ..write('id: $id, ')
+          ..write('metricId: $metricId, ')
+          ..write('stroke: $stroke, ')
+          ..write('targetRate: $targetRate, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('active: $active')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, metricId, stroke, targetRate, createdAt, active);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Goal &&
+          other.id == this.id &&
+          other.metricId == this.metricId &&
+          other.stroke == this.stroke &&
+          other.targetRate == this.targetRate &&
+          other.createdAt == this.createdAt &&
+          other.active == this.active);
+}
+
+class GoalsCompanion extends UpdateCompanion<Goal> {
+  final Value<int> id;
+  final Value<String> metricId;
+  final Value<String> stroke;
+  final Value<double> targetRate;
+  final Value<DateTime> createdAt;
+  final Value<bool> active;
+  const GoalsCompanion({
+    this.id = const Value.absent(),
+    this.metricId = const Value.absent(),
+    this.stroke = const Value.absent(),
+    this.targetRate = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.active = const Value.absent(),
+  });
+  GoalsCompanion.insert({
+    this.id = const Value.absent(),
+    required String metricId,
+    required String stroke,
+    required double targetRate,
+    required DateTime createdAt,
+    this.active = const Value.absent(),
+  }) : metricId = Value(metricId),
+       stroke = Value(stroke),
+       targetRate = Value(targetRate),
+       createdAt = Value(createdAt);
+  static Insertable<Goal> custom({
+    Expression<int>? id,
+    Expression<String>? metricId,
+    Expression<String>? stroke,
+    Expression<double>? targetRate,
+    Expression<DateTime>? createdAt,
+    Expression<bool>? active,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (metricId != null) 'metric_id': metricId,
+      if (stroke != null) 'stroke': stroke,
+      if (targetRate != null) 'target_rate': targetRate,
+      if (createdAt != null) 'created_at': createdAt,
+      if (active != null) 'active': active,
+    });
+  }
+
+  GoalsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? metricId,
+    Value<String>? stroke,
+    Value<double>? targetRate,
+    Value<DateTime>? createdAt,
+    Value<bool>? active,
+  }) {
+    return GoalsCompanion(
+      id: id ?? this.id,
+      metricId: metricId ?? this.metricId,
+      stroke: stroke ?? this.stroke,
+      targetRate: targetRate ?? this.targetRate,
+      createdAt: createdAt ?? this.createdAt,
+      active: active ?? this.active,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (metricId.present) {
+      map['metric_id'] = Variable<String>(metricId.value);
+    }
+    if (stroke.present) {
+      map['stroke'] = Variable<String>(stroke.value);
+    }
+    if (targetRate.present) {
+      map['target_rate'] = Variable<double>(targetRate.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (active.present) {
+      map['active'] = Variable<bool>(active.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('GoalsCompanion(')
+          ..write('id: $id, ')
+          ..write('metricId: $metricId, ')
+          ..write('stroke: $stroke, ')
+          ..write('targetRate: $targetRate, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('active: $active')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1957,6 +2453,9 @@ typedef $$SessionsTableCreateCompanionBuilder =
       Value<String> chatHistory,
       Value<String> headline,
       Value<String> encouragement,
+      Value<String> highlights,
+      Value<String> strokeSequence,
+      Value<String> insights,
     });
 typedef $$SessionsTableUpdateCompanionBuilder =
     SessionsCompanion Function({
@@ -1974,6 +2473,9 @@ typedef $$SessionsTableUpdateCompanionBuilder =
       Value<String> chatHistory,
       Value<String> headline,
       Value<String> encouragement,
+      Value<String> highlights,
+      Value<String> strokeSequence,
+      Value<String> insights,
     });
 
 final class $$SessionsTableReferences
@@ -2075,6 +2577,21 @@ class $$SessionsTableFilterComposer
 
   ColumnFilters<String> get encouragement => $composableBuilder(
     column: $table.encouragement,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get highlights => $composableBuilder(
+    column: $table.highlights,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get strokeSequence => $composableBuilder(
+    column: $table.strokeSequence,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get insights => $composableBuilder(
+    column: $table.insights,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2182,6 +2699,21 @@ class $$SessionsTableOrderingComposer
     column: $table.encouragement,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get highlights => $composableBuilder(
+    column: $table.highlights,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get strokeSequence => $composableBuilder(
+    column: $table.strokeSequence,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get insights => $composableBuilder(
+    column: $table.insights,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SessionsTableAnnotationComposer
@@ -2246,6 +2778,19 @@ class $$SessionsTableAnnotationComposer
     column: $table.encouragement,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get highlights => $composableBuilder(
+    column: $table.highlights,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get strokeSequence => $composableBuilder(
+    column: $table.strokeSequence,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get insights =>
+      $composableBuilder(column: $table.insights, builder: (column) => column);
 
   Expression<T> shotStatsRefs<T extends Object>(
     Expression<T> Function($$ShotStatsTableAnnotationComposer a) f,
@@ -2315,6 +2860,9 @@ class $$SessionsTableTableManager
                 Value<String> chatHistory = const Value.absent(),
                 Value<String> headline = const Value.absent(),
                 Value<String> encouragement = const Value.absent(),
+                Value<String> highlights = const Value.absent(),
+                Value<String> strokeSequence = const Value.absent(),
+                Value<String> insights = const Value.absent(),
               }) => SessionsCompanion(
                 id: id,
                 startedAt: startedAt,
@@ -2330,6 +2878,9 @@ class $$SessionsTableTableManager
                 chatHistory: chatHistory,
                 headline: headline,
                 encouragement: encouragement,
+                highlights: highlights,
+                strokeSequence: strokeSequence,
+                insights: insights,
               ),
           createCompanionCallback:
               ({
@@ -2347,6 +2898,9 @@ class $$SessionsTableTableManager
                 Value<String> chatHistory = const Value.absent(),
                 Value<String> headline = const Value.absent(),
                 Value<String> encouragement = const Value.absent(),
+                Value<String> highlights = const Value.absent(),
+                Value<String> strokeSequence = const Value.absent(),
+                Value<String> insights = const Value.absent(),
               }) => SessionsCompanion.insert(
                 id: id,
                 startedAt: startedAt,
@@ -2362,6 +2916,9 @@ class $$SessionsTableTableManager
                 chatHistory: chatHistory,
                 headline: headline,
                 encouragement: encouragement,
+                highlights: highlights,
+                strokeSequence: strokeSequence,
+                insights: insights,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -2426,6 +2983,7 @@ typedef $$ShotStatsTableCreateCompanionBuilder =
       required double score,
       required String phaseScores,
       Value<String?> topDeviationId,
+      Value<String> deviations,
       required int tOffsetMs,
     });
 typedef $$ShotStatsTableUpdateCompanionBuilder =
@@ -2436,6 +2994,7 @@ typedef $$ShotStatsTableUpdateCompanionBuilder =
       Value<double> score,
       Value<String> phaseScores,
       Value<String?> topDeviationId,
+      Value<String> deviations,
       Value<int> tOffsetMs,
     });
 
@@ -2492,6 +3051,11 @@ class $$ShotStatsTableFilterComposer
 
   ColumnFilters<String> get topDeviationId => $composableBuilder(
     column: $table.topDeviationId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deviations => $composableBuilder(
+    column: $table.deviations,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2558,6 +3122,11 @@ class $$ShotStatsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get deviations => $composableBuilder(
+    column: $table.deviations,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get tOffsetMs => $composableBuilder(
     column: $table.tOffsetMs,
     builder: (column) => ColumnOrderings(column),
@@ -2612,6 +3181,11 @@ class $$ShotStatsTableAnnotationComposer
 
   GeneratedColumn<String> get topDeviationId => $composableBuilder(
     column: $table.topDeviationId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get deviations => $composableBuilder(
+    column: $table.deviations,
     builder: (column) => column,
   );
 
@@ -2676,6 +3250,7 @@ class $$ShotStatsTableTableManager
                 Value<double> score = const Value.absent(),
                 Value<String> phaseScores = const Value.absent(),
                 Value<String?> topDeviationId = const Value.absent(),
+                Value<String> deviations = const Value.absent(),
                 Value<int> tOffsetMs = const Value.absent(),
               }) => ShotStatsCompanion(
                 id: id,
@@ -2684,6 +3259,7 @@ class $$ShotStatsTableTableManager
                 score: score,
                 phaseScores: phaseScores,
                 topDeviationId: topDeviationId,
+                deviations: deviations,
                 tOffsetMs: tOffsetMs,
               ),
           createCompanionCallback:
@@ -2694,6 +3270,7 @@ class $$ShotStatsTableTableManager
                 required double score,
                 required String phaseScores,
                 Value<String?> topDeviationId = const Value.absent(),
+                Value<String> deviations = const Value.absent(),
                 required int tOffsetMs,
               }) => ShotStatsCompanion.insert(
                 id: id,
@@ -2702,6 +3279,7 @@ class $$ShotStatsTableTableManager
                 score: score,
                 phaseScores: phaseScores,
                 topDeviationId: topDeviationId,
+                deviations: deviations,
                 tOffsetMs: tOffsetMs,
               ),
           withReferenceMapper: (p0) => p0
@@ -3085,351 +3663,214 @@ typedef $$SettingsTableProcessedTableManager =
       Setting,
       PrefetchHooks Function()
     >;
+typedef $$GoalsTableCreateCompanionBuilder =
+    GoalsCompanion Function({
+      Value<int> id,
+      required String metricId,
+      required String stroke,
+      required double targetRate,
+      required DateTime createdAt,
+      Value<bool> active,
+    });
+typedef $$GoalsTableUpdateCompanionBuilder =
+    GoalsCompanion Function({
+      Value<int> id,
+      Value<String> metricId,
+      Value<String> stroke,
+      Value<double> targetRate,
+      Value<DateTime> createdAt,
+      Value<bool> active,
+    });
 
-class $GoalsTable extends Goals with TableInfo<$GoalsTable, Goal> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $GoalsTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _idMeta = const VerificationMeta('id');
-  @override
-  late final GeneratedColumn<int> id = GeneratedColumn<int>(
-    'id',
-    aliasedName,
-    false,
-    hasAutoIncrement: true,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'PRIMARY KEY AUTOINCREMENT',
-    ),
-  );
-  static const VerificationMeta _metricIdMeta =
-      const VerificationMeta('metricId');
-  @override
-  late final GeneratedColumn<String> metricId = GeneratedColumn<String>(
-    'metric_id',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _strokeMeta =
-      const VerificationMeta('stroke');
-  @override
-  late final GeneratedColumn<String> stroke = GeneratedColumn<String>(
-    'stroke',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _targetRateMeta =
-      const VerificationMeta('targetRate');
-  @override
-  late final GeneratedColumn<double> targetRate = GeneratedColumn<double>(
-    'target_rate',
-    aliasedName,
-    false,
-    type: DriftSqlType.double,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _createdAtMeta =
-      const VerificationMeta('createdAt');
-  @override
-  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
-    'created_at',
-    aliasedName,
-    false,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _activeMeta =
-      const VerificationMeta('active');
-  @override
-  late final GeneratedColumn<bool> active = GeneratedColumn<bool>(
-    'active',
-    aliasedName,
-    false,
-    type: DriftSqlType.bool,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'CHECK ("active" IN (0, 1))',
-    ),
-    defaultValue: const Constant(true),
-  );
-  @override
-  List<GeneratedColumn> get $columns => [
-    id,
-    metricId,
-    stroke,
-    targetRate,
-    createdAt,
-    active,
-  ];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'goals';
-  @override
-  VerificationContext validateIntegrity(
-    Insertable<Goal> instance, {
-    bool isInserting = false,
-  }) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('id')) {
-      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    }
-    if (data.containsKey('metric_id')) {
-      context.handle(
-        _metricIdMeta,
-        metricId.isAcceptableOrUnknown(data['metric_id']!, _metricIdMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_metricIdMeta);
-    }
-    if (data.containsKey('stroke')) {
-      context.handle(
-        _strokeMeta,
-        stroke.isAcceptableOrUnknown(data['stroke']!, _strokeMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_strokeMeta);
-    }
-    if (data.containsKey('target_rate')) {
-      context.handle(
-        _targetRateMeta,
-        targetRate.isAcceptableOrUnknown(data['target_rate']!, _targetRateMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_targetRateMeta);
-    }
-    if (data.containsKey('created_at')) {
-      context.handle(
-        _createdAtMeta,
-        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_createdAtMeta);
-    }
-    if (data.containsKey('active')) {
-      context.handle(
-        _activeMeta,
-        active.isAcceptableOrUnknown(data['active']!, _activeMeta),
-      );
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {id};
-  @override
-  Goal map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return Goal(
-      id: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
-      metricId: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}metric_id'])!,
-      stroke: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}stroke'])!,
-      targetRate: attachedDatabase.typeMapping
-          .read(DriftSqlType.double, data['${effectivePrefix}target_rate'])!,
-      createdAt: attachedDatabase.typeMapping
-          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
-      active: attachedDatabase.typeMapping
-          .read(DriftSqlType.bool, data['${effectivePrefix}active'])!,
-    );
-  }
-
-  @override
-  $GoalsTable createAlias(String alias) => $GoalsTable(attachedDatabase, alias);
-}
-
-class Goal extends DataClass implements Insertable<Goal> {
-  final int id;
-  final String metricId;
-  final String stroke;
-  final double targetRate;
-  final DateTime createdAt;
-  final bool active;
-  const Goal({
-    required this.id,
-    required this.metricId,
-    required this.stroke,
-    required this.targetRate,
-    required this.createdAt,
-    required this.active,
+class $$GoalsTableFilterComposer extends Composer<_$AppDatabase, $GoalsTable> {
+  $$GoalsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
   });
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['id'] = Variable<int>(id);
-    map['metric_id'] = Variable<String>(metricId);
-    map['stroke'] = Variable<String>(stroke);
-    map['target_rate'] = Variable<double>(targetRate);
-    map['created_at'] = Variable<DateTime>(createdAt);
-    map['active'] = Variable<bool>(active);
-    return map;
-  }
-
-  GoalsCompanion toCompanion(bool nullToAbsent) {
-    return GoalsCompanion(
-      id: Value(id),
-      metricId: Value(metricId),
-      stroke: Value(stroke),
-      targetRate: Value(targetRate),
-      createdAt: Value(createdAt),
-      active: Value(active),
-    );
-  }
-
-  factory Goal.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return Goal(
-      id: serializer.fromJson<int>(json['id']),
-      metricId: serializer.fromJson<String>(json['metricId']),
-      stroke: serializer.fromJson<String>(json['stroke']),
-      targetRate: serializer.fromJson<double>(json['targetRate']),
-      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
-      active: serializer.fromJson<bool>(json['active']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'id': serializer.toJson<int>(id),
-      'metricId': serializer.toJson<String>(metricId),
-      'stroke': serializer.toJson<String>(stroke),
-      'targetRate': serializer.toJson<double>(targetRate),
-      'createdAt': serializer.toJson<DateTime>(createdAt),
-      'active': serializer.toJson<bool>(active),
-    };
-  }
-
-  Goal copyWith({
-    int? id,
-    String? metricId,
-    String? stroke,
-    double? targetRate,
-    DateTime? createdAt,
-    bool? active,
-  }) => Goal(
-    id: id ?? this.id,
-    metricId: metricId ?? this.metricId,
-    stroke: stroke ?? this.stroke,
-    targetRate: targetRate ?? this.targetRate,
-    createdAt: createdAt ?? this.createdAt,
-    active: active ?? this.active,
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
   );
 
-  @override
-  String toString() {
-    return (StringBuffer('Goal(')
-          ..write('id: $id, ')
-          ..write('metricId: $metricId, ')
-          ..write('stroke: $stroke, ')
-          ..write('targetRate: $targetRate, ')
-          ..write('createdAt: $createdAt, ')
-          ..write('active: $active')
-          ..write(')'))
-        .toString();
-  }
+  ColumnFilters<String> get metricId => $composableBuilder(
+    column: $table.metricId,
+    builder: (column) => ColumnFilters(column),
+  );
 
-  @override
-  int get hashCode =>
-      Object.hash(id, metricId, stroke, targetRate, createdAt, active);
+  ColumnFilters<String> get stroke => $composableBuilder(
+    column: $table.stroke,
+    builder: (column) => ColumnFilters(column),
+  );
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is Goal &&
-          other.id == this.id &&
-          other.metricId == this.metricId &&
-          other.stroke == this.stroke &&
-          other.targetRate == this.targetRate &&
-          other.createdAt == this.createdAt &&
-          other.active == this.active);
+  ColumnFilters<double> get targetRate => $composableBuilder(
+    column: $table.targetRate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get active => $composableBuilder(
+    column: $table.active,
+    builder: (column) => ColumnFilters(column),
+  );
 }
 
-class GoalsCompanion extends UpdateCompanion<Goal> {
-  final Value<int> id;
-  final Value<String> metricId;
-  final Value<String> stroke;
-  final Value<double> targetRate;
-  final Value<DateTime> createdAt;
-  final Value<bool> active;
-  const GoalsCompanion({
-    this.id = const Value.absent(),
-    this.metricId = const Value.absent(),
-    this.stroke = const Value.absent(),
-    this.targetRate = const Value.absent(),
-    this.createdAt = const Value.absent(),
-    this.active = const Value.absent(),
+class $$GoalsTableOrderingComposer
+    extends Composer<_$AppDatabase, $GoalsTable> {
+  $$GoalsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
   });
-  GoalsCompanion.insert({
-    this.id = const Value.absent(),
-    required String metricId,
-    required String stroke,
-    required double targetRate,
-    required DateTime createdAt,
-    this.active = const Value.absent(),
-  }) : metricId = Value(metricId),
-       stroke = Value(stroke),
-       targetRate = Value(targetRate),
-       createdAt = Value(createdAt);
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
 
-  GoalsCompanion copyWith({
-    Value<int>? id,
-    Value<String>? metricId,
-    Value<String>? stroke,
-    Value<double>? targetRate,
-    Value<DateTime>? createdAt,
-    Value<bool>? active,
-  }) {
-    return GoalsCompanion(
-      id: id ?? this.id,
-      metricId: metricId ?? this.metricId,
-      stroke: stroke ?? this.stroke,
-      targetRate: targetRate ?? this.targetRate,
-      createdAt: createdAt ?? this.createdAt,
-      active: active ?? this.active,
-    );
-  }
+  ColumnOrderings<String> get metricId => $composableBuilder(
+    column: $table.metricId,
+    builder: (column) => ColumnOrderings(column),
+  );
 
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (id.present) map['id'] = Variable<int>(id.value);
-    if (metricId.present) map['metric_id'] = Variable<String>(metricId.value);
-    if (stroke.present) map['stroke'] = Variable<String>(stroke.value);
-    if (targetRate.present)
-      map['target_rate'] = Variable<double>(targetRate.value);
-    if (createdAt.present)
-      map['created_at'] = Variable<DateTime>(createdAt.value);
-    if (active.present) map['active'] = Variable<bool>(active.value);
-    return map;
-  }
+  ColumnOrderings<String> get stroke => $composableBuilder(
+    column: $table.stroke,
+    builder: (column) => ColumnOrderings(column),
+  );
 
-  @override
-  String toString() {
-    return (StringBuffer('GoalsCompanion(')
-          ..write('id: $id, ')
-          ..write('metricId: $metricId, ')
-          ..write('stroke: $stroke, ')
-          ..write('targetRate: $targetRate, ')
-          ..write('createdAt: $createdAt, ')
-          ..write('active: $active')
-          ..write(')'))
-        .toString();
-  }
+  ColumnOrderings<double> get targetRate => $composableBuilder(
+    column: $table.targetRate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get active => $composableBuilder(
+    column: $table.active,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
+
+class $$GoalsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $GoalsTable> {
+  $$GoalsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get metricId =>
+      $composableBuilder(column: $table.metricId, builder: (column) => column);
+
+  GeneratedColumn<String> get stroke =>
+      $composableBuilder(column: $table.stroke, builder: (column) => column);
+
+  GeneratedColumn<double> get targetRate => $composableBuilder(
+    column: $table.targetRate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get active =>
+      $composableBuilder(column: $table.active, builder: (column) => column);
+}
+
+class $$GoalsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $GoalsTable,
+          Goal,
+          $$GoalsTableFilterComposer,
+          $$GoalsTableOrderingComposer,
+          $$GoalsTableAnnotationComposer,
+          $$GoalsTableCreateCompanionBuilder,
+          $$GoalsTableUpdateCompanionBuilder,
+          (Goal, BaseReferences<_$AppDatabase, $GoalsTable, Goal>),
+          Goal,
+          PrefetchHooks Function()
+        > {
+  $$GoalsTableTableManager(_$AppDatabase db, $GoalsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$GoalsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$GoalsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$GoalsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> metricId = const Value.absent(),
+                Value<String> stroke = const Value.absent(),
+                Value<double> targetRate = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<bool> active = const Value.absent(),
+              }) => GoalsCompanion(
+                id: id,
+                metricId: metricId,
+                stroke: stroke,
+                targetRate: targetRate,
+                createdAt: createdAt,
+                active: active,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String metricId,
+                required String stroke,
+                required double targetRate,
+                required DateTime createdAt,
+                Value<bool> active = const Value.absent(),
+              }) => GoalsCompanion.insert(
+                id: id,
+                metricId: metricId,
+                stroke: stroke,
+                targetRate: targetRate,
+                createdAt: createdAt,
+                active: active,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$GoalsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $GoalsTable,
+      Goal,
+      $$GoalsTableFilterComposer,
+      $$GoalsTableOrderingComposer,
+      $$GoalsTableAnnotationComposer,
+      $$GoalsTableCreateCompanionBuilder,
+      $$GoalsTableUpdateCompanionBuilder,
+      (Goal, BaseReferences<_$AppDatabase, $GoalsTable, Goal>),
+      Goal,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -3442,4 +3883,6 @@ class $AppDatabaseManager {
       $$StrokeTrendsTableTableManager(_db, _db.strokeTrends);
   $$SettingsTableTableManager get settings =>
       $$SettingsTableTableManager(_db, _db.settings);
+  $$GoalsTableTableManager get goals =>
+      $$GoalsTableTableManager(_db, _db.goals);
 }

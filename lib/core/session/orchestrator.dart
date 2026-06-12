@@ -24,6 +24,7 @@ import '../engine/reference_library.dart';
 import '../pose/pose_source.dart';
 import '../storage/session_repository.dart';
 import 'calibration.dart';
+import 'session_insights.dart';
 import 'shot_processor.dart';
 import 'summary_generator.dart';
 
@@ -83,11 +84,31 @@ class LiveStats {
     required this.shots,
     required this.lastScore,
     required this.avgScore,
+    this.cleanStreak = 0,
+    this.isSessionBest = false,
+    this.recentScores = const [],
+    this.strokeCounts = const {},
+    this.focusMetricId,
   });
 
   final int shots;
   final int lastScore;
   final int avgScore;
+
+  /// Consecutive deviation-free shots ending at the latest one.
+  final int cleanStreak;
+
+  /// True when the latest shot set a new session-best score (after shot 5).
+  final bool isSessionBest;
+
+  /// Last up-to-12 shot scores, oldest first — drives the live sparkline.
+  final List<int> recentScores;
+
+  /// Stroke id → shots so far (multi-stroke sessions show a tally).
+  final Map<String, int> strokeCounts;
+
+  /// The metric the coach is currently focusing on, when any.
+  final String? focusMetricId;
 
   static const zero = LiveStats(shots: 0, lastScore: 0, avgScore: 0);
 }
@@ -167,7 +188,11 @@ class SessionOrchestrator {
   final List<SummaryShot> _shots = [];
   final List<double> _recentScores = [];
   final List<String> _recentCueTexts = [];
+  final List<int> _sparkline = [];
+  final Map<String, int> _strokeCounts = {};
   int _spokenCueCount = 0;
+  int _cleanStreak = 0;
+  double _bestScore = -1;
   DateTime? _startedAt;
   DateTime? _lostSince;
   bool _userPaused = false;
@@ -270,27 +295,10 @@ class SessionOrchestrator {
         _current != SessionPhase.calibrating) {
       return;
     }
-    final startedAt = _startedAt ?? _clock();
-    _shots.add((
-      stroke: event.stroke,
-      score: event.score,
-      tOffsetMs: _clock().difference(startedAt).inMilliseconds,
-    ));
-    processor.recordShotDeviations(event.score.deviations);
-    _recentScores.add(event.score.score);
-    if (_recentScores.length > 10) _recentScores.removeAt(0);
-
-    final scores = [for (final s in _shots) s.score.score];
-    _liveStats = LiveStats(
-      shots: _shots.length,
-      lastScore: event.score.score.round(),
-      avgScore:
-          (scores.reduce((a, b) => a + b) / scores.length).round(),
-    );
-    if (!_stats.isClosed) _stats.add(_liveStats);
+    final isBest = _recordShot(event.stroke, event.score);
 
     if (_calibrating && _shots.length >= 10) {
-      _tier = skillTierForScores(scores);
+      _tier = skillTierForScores([for (final s in _shots) s.score.score]);
       _calibrating = false;
       unawaited(repository.setSetting('skill_tier', _tier));
       _setPhase(SessionPhase.live);
@@ -303,7 +311,42 @@ class SessionOrchestrator {
       }
     }
 
-    _speakForShot(event);
+    _speakForShot(event, isSessionBest: isBest);
+  }
+
+  /// Appends the shot, updates streak/best/sparkline state, and publishes
+  /// new [LiveStats]. Returns true when this shot set a session best.
+  bool _recordShot(Stroke stroke, ShotScore score) {
+    final startedAt = _startedAt ?? _clock();
+    final isBest = _shots.length >= 5 && score.score > _bestScore;
+    if (score.score > _bestScore) _bestScore = score.score;
+    _cleanStreak = score.deviations.isEmpty ? _cleanStreak + 1 : 0;
+
+    _shots.add((
+      stroke: stroke,
+      score: score,
+      tOffsetMs: _clock().difference(startedAt).inMilliseconds,
+    ));
+    processor.recordShotDeviations(score.deviations);
+    _recentScores.add(score.score);
+    if (_recentScores.length > 10) _recentScores.removeAt(0);
+    _sparkline.add(score.score.round());
+    if (_sparkline.length > 12) _sparkline.removeAt(0);
+    _strokeCounts[stroke.id] = (_strokeCounts[stroke.id] ?? 0) + 1;
+
+    final scores = [for (final s in _shots) s.score.score];
+    _liveStats = LiveStats(
+      shots: _shots.length,
+      lastScore: score.score.round(),
+      avgScore: (scores.reduce((a, b) => a + b) / scores.length).round(),
+      cleanStreak: _cleanStreak,
+      isSessionBest: isBest,
+      recentScores: List.unmodifiable(_sparkline),
+      strokeCounts: Map.unmodifiable(Map.of(_strokeCounts)),
+      focusMetricId: _focusManager.focusId,
+    );
+    if (!_stats.isClosed) _stats.add(_liveStats);
+    return isBest;
   }
 
   void _transitionToNextStroke() {
@@ -326,34 +369,32 @@ class SessionOrchestrator {
         _current != SessionPhase.calibrating) {
       return;
     }
-    _shots.add((
-      stroke: Stroke.footwork,
-      score: event.score,
-      tOffsetMs:
-          _clock().difference(_startedAt ?? _clock()).inMilliseconds,
-    ));
-    processor.recordShotDeviations(event.score.deviations);
-    final scores = [for (final s in _shots) s.score.score];
-    _liveStats = LiveStats(
-      shots: _shots.length,
-      lastScore: event.score.score.round(),
-      avgScore: (scores.reduce((a, b) => a + b) / scores.length).round(),
+    final isBest = _recordShot(Stroke.footwork, event.score);
+    _speakForShot(
+      ShotEvent(
+        stroke: Stroke.footwork,
+        score: event.score,
+        view: processor.majorityView,
+        peakTimestampMs: 0,
+        measured: const {},
+        wristTrail: const [],
+      ),
+      isSessionBest: isBest,
     );
-    if (!_stats.isClosed) _stats.add(_liveStats);
-    _speakForShot(ShotEvent(
-      stroke: Stroke.footwork,
-      score: event.score,
-      view: processor.majorityView,
-      peakTimestampMs: 0,
-      measured: const {},
-      wristTrail: const [],
-    ));
   }
 
-  void _speakForShot(ShotEvent event) {
+  void _speakForShot(ShotEvent event, {bool isSessionBest = false}) {
     final deviations = event.score.deviations;
     final recurrence = processor.recurrenceCounts();
     final focusId = _focusManager.update(recurrence);
+
+    // Milestones outrank this shot's cue: they're rarer, and the deviation
+    // was still recorded so the recurrence/focus pipeline keeps tracking it.
+    final milestone = _milestoneText(isSessionBest);
+    if (milestone != null) {
+      coach.submit(milestone, CoachUtteranceKind.encouragement);
+      return;
+    }
 
     if (deviations.isEmpty) {
       coach.submit(bank.pick(
@@ -383,6 +424,28 @@ class SessionOrchestrator {
       unawaited(_raceBrainCue(event, picked, cueCountAtSubmit,
           focusId: focusId));
     }
+  }
+
+  /// Deterministic spoken milestone for this shot, or null for the normal
+  /// cue path. Priority: session best > clean streak > 10-shot check-in.
+  String? _milestoneText(bool isSessionBest) {
+    if (isSessionBest) return bank.pick('milestone:best', _rng);
+    if (_cleanStreak == 3 ||
+        (_cleanStreak >= 5 && _cleanStreak % 5 == 0)) {
+      return bank.pick('milestone:streak', _rng);
+    }
+    if (_shots.isNotEmpty && _shots.length % 10 == 0) {
+      final trend = _scoreTrend();
+      final slot = trend > 2
+          ? 'checkin:up'
+          : trend < -2
+              ? 'checkin:down'
+              : 'checkin:steady';
+      return bank
+          .pick(slot, _rng)
+          .replaceAll('{avg}', '${_liveStats.avgScore}');
+    }
+    return null;
   }
 
   Future<void> _raceBrainCue(
@@ -463,6 +526,10 @@ class SessionOrchestrator {
       durationS: durationS,
       catalog: catalog,
     );
+    final insights = computeSessionInsights(
+      shots: _shots,
+      goalMetricId: config.goalMetricId,
+    );
 
     var headline = '';
     var encouragement = '';
@@ -498,6 +565,7 @@ class SessionOrchestrator {
       encouragement: encouragement,
       highlights: jsonEncode(highlights ?? []),
       strokeSequence: jsonEncode(config.strokeSequence),
+      insights: jsonEncode(insights.toJson()),
       shots: [
         for (final s in _shots)
           (
@@ -507,6 +575,15 @@ class SessionOrchestrator {
             topDeviationId: s.score.deviations.isEmpty
                 ? null
                 : s.score.deviations.first.id,
+            deviations: jsonEncode([
+              for (final d in s.score.deviations)
+                {
+                  'id': d.id,
+                  'phase': d.phase,
+                  'direction': d.direction,
+                  'severity': (d.severity * 1000).round() / 1000,
+                },
+            ]),
             tOffsetMs: s.tOffsetMs,
           ),
       ],
@@ -518,7 +595,7 @@ class SessionOrchestrator {
   Future<(String, String, List<String>, List<String>)> _brainSummary(
       SessionSummaryData summary, int durationS) async {
     try {
-      if (!await brain!.isAvailable()) return ('', '', [], []);
+      if (!await brain!.isAvailable()) return ('', '', <String>[], <String>[]);
       final strokeAverages = <String, List<double>>{};
       for (final s in _shots) {
         strokeAverages.putIfAbsent(s.stroke.id, () => []).add(s.score.score);
@@ -550,7 +627,7 @@ class SessionOrchestrator {
           maxTokens: 700, deadline: const Duration(seconds: 20));
       final json = jsonDecode(
           reply.substring(reply.indexOf('{'), reply.lastIndexOf('}') + 1));
-      if (json is! Map<String, dynamic>) return ('', '', [], []);
+      if (json is! Map<String, dynamic>) return ('', '', <String>[], <String>[]);
       final brainGood =
           (json['what_worked'] as List?)?.cast<String>() ?? <String>[];
       final brainWorkOn =
@@ -562,7 +639,7 @@ class SessionOrchestrator {
         brainWorkOn,
       );
     } catch (_) {
-      return ('', '', [], []); // Rule-based summary stands on its own.
+      return ('', '', <String>[], <String>[]); // Rule-based summary stands on its own.
     }
   }
 

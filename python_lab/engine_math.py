@@ -149,12 +149,45 @@ def wrist_speeds(frames):
     return speeds
 
 
+def validate_shot_window(frames, shot, speeds):
+    """Kinematic sanity gates over a candidate swing window (SPEC §6).
+
+    Rejects tracking glitches without rejecting real swings. The window span
+    is parameter-determined (peak ± `window` frames ≈ 3 s at 30 fps), so the
+    duration gate only catches dropped-frame blowups, and the post/pre speed
+    ratio only catches one-sided windows (post-peak tracking loss); real
+    follow-throughs are routinely FASTER than the windup (ratio > 1).
+    1. Wall-clock span must be 400–4000 ms.
+    2. Apex shape: speed at peak±3 frames must drop below 85% of the peak.
+    3. Post/pre mean-speed ratio must stay within [0.05, 5.0].
+    """
+    s, p, e = shot["start"], shot["peak"], shot["end"]
+    duration_ms = frames[e]["t"] - frames[s]["t"]
+    if duration_ms < 400 or duration_ms > 4000:
+        return False
+    peak_speed = speeds[p]
+    if peak_speed <= 0:
+        return False
+    left = max(s, p - 3)
+    right = min(e, p + 3)
+    if speeds[left] >= 0.85 * peak_speed or speeds[right] >= 0.85 * peak_speed:
+        return False
+    pre = speeds[s:p]
+    post = speeds[p + 1:e + 1]
+    if pre and post and sum(pre) > 0:
+        ratio = (sum(post) / len(post)) / (sum(pre) / len(pre))
+        if ratio < 0.05 or ratio > 5.0:
+            return False
+    return True
+
+
 def detect_shots(frames, base_threshold=6.0, window=45, min_gap=30):
     """Find swing events: wrist-speed peaks above an adaptive threshold.
 
     frames: list of {"t": ms, "kp": normalized 17x[x,y]} (already normalized,
     handedness-mirrored). Returns list of
-    {"peak": i, "start": s, "end": e, "peak_speed": v}.
+    {"peak": i, "start": s, "end": e, "peak_speed": v}, each validated by
+    validate_shot_window.
     """
     speeds = wrist_speeds(frames)
     n = len(speeds)
@@ -177,7 +210,7 @@ def detect_shots(frames, base_threshold=6.0, window=45, min_gap=30):
             shots.append({"peak": i, "start": max(0, i - window),
                           "end": min(n - 1, i + window), "peak_speed": speeds[i]})
         i += 1
-    return shots
+    return [sh for sh in shots if validate_shot_window(frames, sh, speeds)]
 
 
 def classify_shot(frames, shot):
@@ -318,7 +351,27 @@ def segment_phases(frames, shot, stroke="forehand", trunk_speed_threshold=90.0):
         if speeds[i] < 0.2 * peak_speed:
             follow_end = i
             break
-    return {"prep": prep, "backswing": bw, "contact": p, "follow_end": follow_end}
+    # Serve: find the toss frame — the index where the tossing arm (left
+    # wrist) is highest relative to the racket arm (right wrist), scanned
+    # from shot start to the trophy position.
+    toss_frame = None
+    if stroke == "serve":
+        trophy_i = s
+        for i in range(s, p + 1):
+            kp = frames[i]["kp"]
+            sho_mid_y = (kp[L_SHOULDER][1] + kp[R_SHOULDER][1]) / 2.0
+            if kp[R_WRIST][1] >= sho_mid_y:
+                trophy_i = i
+                break
+        max_div = float("-inf")
+        for i in range(s, trophy_i + 1):
+            kp = frames[i]["kp"]
+            div = kp[L_WRIST][1] - kp[R_WRIST][1]
+            if div > max_div:
+                max_div = div
+                toss_frame = i
+    return {"prep": prep, "backswing": bw, "contact": p,
+            "follow_end": follow_end, "toss_frame": toss_frame}
 
 
 # ----------------------------------------------------------------- Scoring
@@ -355,7 +408,7 @@ def measure_metrics(frames, phases, address_angles):
         return abs(diff)
 
     prep_ms = frames[phases["contact"]]["t"] - frames[phases["prep"]]["t"]
-    return {
+    result = {
         "preparation": {
             "shoulder_turn": turn(prep_a),
             "knee_flexion": prep_a["knee_flexion"],
@@ -378,6 +431,14 @@ def measure_metrics(frames, phases, address_angles):
         },
         "timing": {"prep_before_contact_ms": float(prep_ms)},
     }
+    # Serve toss metrics: measured at the bimanual divergence peak frame.
+    if phases.get("toss_frame") is not None:
+        tf = phases["toss_frame"]
+        left_wrist_y = frames[tf]["kp"][L_WRIST][1]
+        right_wrist_y = frames[tf]["kp"][R_WRIST][1]
+        result["preparation"]["toss_height"] = left_wrist_y
+        result["preparation"]["wrist_divergence"] = left_wrist_y - right_wrist_y
+    return result
 
 
 def score_metric(value, ideal, tolerance=None):

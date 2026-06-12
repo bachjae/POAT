@@ -289,6 +289,41 @@ PERSONALITIES = {
             "angle's tight, focusing on footwork",
             "move me for more, footwork for now",
         ],
+        "system:stroke_transition": [
+            "great work! now {stroke}.",
+            "{stroke} next — you have got this.",
+            "switching to {stroke}, stay focused.",
+        ],
+        "milestone:best": [
+            "best shot of the session, right there",
+            "new session best — that felt different",
+            "that's your best one yet, love it",
+            "top shot of the day so far",
+        ],
+        "milestone:streak": [
+            "look at that streak, all clean",
+            "clean shot after clean shot, keep stacking",
+            "you're on a roll, stay with it",
+            "that streak is no accident",
+        ],
+        "checkin:up": [
+            "quick check — averaging {avg} and climbing",
+            "you're at {avg} now, trending up",
+            "{avg} average and rising, love the work",
+            "averaging {avg}, and it's getting better",
+        ],
+        "checkin:down": [
+            "averaging {avg} — let's reset and breathe",
+            "{avg} right now, fresh start this ball",
+            "at {avg}, dipping a little — refocus",
+            "{avg} average, shake it off, next one",
+        ],
+        "checkin:steady": [
+            "holding steady at {avg}, nice and solid",
+            "{avg} average, consistent work out there",
+            "steady at {avg}, keep the rhythm",
+            "you're sitting at {avg}, dependable stuff",
+        ],
     },
     "coach_k": {
         "name": "Coach K",
@@ -366,6 +401,41 @@ PERSONALITIES = {
             "bad angle, footwork only",
             "reposition me for full coaching",
             "view's restricted, working with feet",
+        ],
+        "system:stroke_transition": [
+            "switch to {stroke}.",
+            "next: {stroke}.",
+            "{stroke} now, move.",
+        ],
+        "milestone:best": [
+            "session best, that's the standard",
+            "new best, now repeat it",
+            "best of the day, hold that bar",
+            "that's the benchmark now",
+        ],
+        "milestone:streak": [
+            "clean streak, don't break it",
+            "stacking clean reps, keep going",
+            "streak's alive, stay disciplined",
+            "consecutive clean shots, that's work",
+        ],
+        "checkin:up": [
+            "check: {avg} average, climbing, more",
+            "{avg} and rising, earn the rest",
+            "at {avg}, trend's up, push on",
+            "averaging {avg}, up — don't coast",
+        ],
+        "checkin:down": [
+            "{avg} average, slipping — tighten up",
+            "at {avg}, trend's down, fix it",
+            "averaging {avg} and fading, refocus now",
+            "{avg}, dropping — back to basics",
+        ],
+        "checkin:steady": [
+            "{avg} average, flat — raise it",
+            "holding {avg}, now push past it",
+            "steady at {avg}, next level now",
+            "at {avg}, stable — demand more",
         ],
     },
     "doc": {
@@ -446,6 +516,41 @@ PERSONALITIES = {
             "partial visibility, lower body only",
             "angle limits me to footwork",
         ],
+        "system:stroke_transition": [
+            "{stroke} phase starting.",
+            "transitioning to {stroke}.",
+            "beginning {stroke} analysis.",
+        ],
+        "milestone:best": [
+            "new session maximum, well executed",
+            "highest score so far, mechanics aligned",
+            "session best — the pattern is converging",
+            "peak shot of the session, noted",
+        ],
+        "milestone:streak": [
+            "consecutive in-range shots, strong signal",
+            "the streak shows real motor learning",
+            "clean sequence continuing, pattern stabilising",
+            "repeatedly in range — that's retention",
+        ],
+        "checkin:up": [
+            "status: averaging {avg}, positive trend",
+            "{avg} mean score, improving curve",
+            "average {avg} and ascending, efficient work",
+            "at {avg}, trajectory is upward",
+        ],
+        "checkin:down": [
+            "averaging {avg}, slight decline — recalibrate",
+            "mean {avg}, trending down, simplify",
+            "{avg} average, fatigue pattern perhaps — breathe",
+            "at {avg}, regressing — reset fundamentals",
+        ],
+        "checkin:steady": [
+            "averaging {avg}, stable variance, good baseline",
+            "mean score {avg}, holding steady",
+            "{avg} average, consistent output, sustainable",
+            "steady {avg}, the pattern is repeatable",
+        ],
     },
 }
 
@@ -469,7 +574,10 @@ def build_bank(pid, p):
         phrases[f"cue:{metric}:{direction}"] = variants
     for slot in ["encourage", "ack", "filler", "system:see_you",
                  "system:lost_you", "system:paused", "system:session_start",
-                 "system:session_end", "system:limited_view"]:
+                 "system:session_end", "system:limited_view",
+                 "system:stroke_transition", "milestone:best",
+                 "milestone:streak", "checkin:up", "checkin:down",
+                 "checkin:steady"]:
         phrases[slot] = p[slot]
     return {
         "id": pid,
@@ -495,7 +603,8 @@ def main():
                 assert len(variants) >= 10, f"{pid}/{slot}: only {len(variants)}"
         path = os.path.join(OUT_DIR, f"{pid}.json")
         with open(path, "w") as f:
-            json.dump(bank, f, indent=1)
+            json.dump(bank, f, indent=2, ensure_ascii=False)
+            f.write("\n")
         print(f"wrote {path} ({len(bank['phrases'])} slots)")
 
 

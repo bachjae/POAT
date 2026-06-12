@@ -26,6 +26,8 @@ const _otherSlots = [
   'encourage', 'ack', 'filler',
   'system:see_you', 'system:lost_you', 'system:paused',
   'system:session_start', 'system:session_end', 'system:limited_view',
+  'milestone:best', 'milestone:streak',
+  'checkin:up', 'checkin:down', 'checkin:steady',
 ];
 
 void main() {

@@ -11,6 +11,7 @@ library;
 
 import 'dart:async';
 
+import '../session/session_insights.dart';
 import '../session/summary_generator.dart';
 import 'coach_chat.dart';
 
@@ -114,6 +115,8 @@ class LiteSessionFacts {
     required this.skillTier,
     required this.strengths,
     required this.improvements,
+    this.insights,
+    this.history = const [],
   });
 
   /// Stroke id or 'full'.
@@ -129,6 +132,12 @@ class LiteSessionFacts {
   /// Work-on items: title/detail are display strings, deviationId keys the
   /// knowledge and drill tables.
   final List<({String title, String detail, String deviationId})> improvements;
+
+  /// Deep analytics stored with the session; null on pre-v4 sessions.
+  final SessionInsights? insights;
+
+  /// Aggregates of up to 5 previous sessions, newest first.
+  final List<({String date, String type, int score, int shots})> history;
 }
 
 /// Streams deterministic, session-grounded coach answers. Same `ask`
@@ -169,6 +178,35 @@ class LiteCoachChat {
     if (metric != null && _mentionsAny(q, ['why', 'matter', 'important'])) {
       return _whyAnswer(metric);
     }
+    if (_mentionsAny(q, const [
+      'toward the end', 'at the end', 'start of', 'beginning', 'first half',
+      'second half', 'fade', 'tire', 'late in the session',
+      'during the session', 'over the session', 'as the session went',
+      'as it went',
+    ])) {
+      return _timelineAnswer(metric);
+    }
+    if (_mentionsAny(q, const [
+      'last session', 'previous session', 'last time', 'compare', 'compared',
+      'progress', 'am i improving', 'getting better', 'improving over',
+    ])) {
+      return _progressAnswer();
+    }
+    final stroke = _strokeIn(q);
+    if (stroke != null) return _strokeAnswer(stroke);
+    if (_mentionsAny(q, const [
+      'phase', 'backswing', 'where in my swing', 'part of my swing',
+      'swing break', 'where did my swing',
+    ])) {
+      return _phaseAnswer();
+    }
+    if (_mentionsAny(q, const ['consistent', 'consistency'])) {
+      return _consistencyAnswer();
+    }
+    if (_mentionsAny(q, const ['best shot', 'best moment', 'best one',
+        'highlight'])) {
+      return _bestShotAnswer();
+    }
     if (metric != null) return _metricStatusAnswer(metric);
     if (_mentionsAny(q, ['work on', 'next', 'improve', 'focus', 'fix', 'better'])) {
       return _workOnAnswer();
@@ -182,8 +220,9 @@ class LiteCoachChat {
     if (_mentionsAny(q, ['thank', 'thanks'])) {
       return 'Anytime. Rest up — the next session is where this work pays off.';
     }
-    return '${_overallAnswer()} Ask me about your score, what worked, what '
-        'to work on, why a habit matters, or which drill fixes it.';
+    return '${_overallAnswer()} Ask me about your score, a stroke, a swing '
+        'phase, how the session trended, what to work on, or which drill '
+        'fixes a habit.';
   }
 
   bool _mentionsAny(String q, List<String> needles) =>
@@ -252,6 +291,187 @@ class LiteCoachChat {
     final items = facts.strengths.map((s) => '$s of shots in range').join('; ');
     return 'What held up best: $items. Those numbers are the in-range rate '
         '— keep feeding them volume so they stay automatic under pressure.';
+  }
+
+  static final RegExp _strokeWord =
+      RegExp(r'\b(forehand|backhand|serve|volley|footwork)s?\b');
+
+  String? _strokeIn(String q) => _strokeWord.firstMatch(q)?.group(1);
+
+  /// Insights missing (pre-v4 session): say so once, then give the recap.
+  String get _noDeepData =>
+      'I didn\'t store the deep breakdown for this session — here\'s the '
+      'recap instead. ${_overallAnswer()}';
+
+  String _strokeAnswer(String strokeId) {
+    final ins = facts.insights;
+    if (ins == null) return _noDeepData;
+    final s = ins.strokes[strokeId];
+    if (s == null) {
+      return 'No ${strokeId}s registered — this was a '
+          '${facts.type == 'full' ? 'full-game' : facts.type} session. '
+          'Run a $strokeId drill and I\'ll break it down for you.';
+    }
+    final b = StringBuffer(
+        'Your $strokeId: ${s.count} ${strokeId == 'footwork' ? 'windows' : 'shots'} '
+        'averaging ${s.avgScore.round()}, best ${s.bestScore.round()}, '
+        'lowest ${s.worstScore.round()}.');
+    if (ins.strokes.length > 1) {
+      final ranked = ins.strokes.entries.toList()
+        ..sort((a, b) => b.value.avgScore.compareTo(a.value.avgScore));
+      if (ranked.first.key == strokeId) {
+        b.write(' That was your strongest stroke today.');
+      } else if (ranked.last.key == strokeId) {
+        b.write(' That was your weakest stroke today — worth its own '
+            'session.');
+      }
+    }
+    return b.toString();
+  }
+
+  String _phaseAnswer() {
+    final ins = facts.insights;
+    if (ins == null) return _noDeepData;
+    if (ins.phaseAverages.isEmpty) {
+      return 'I didn\'t get phase-level scores this ${_sessionLabel()} — '
+          'usually a volume or camera-angle thing. More shots next time '
+          'and I\'ll show you the swing piece by piece.';
+    }
+    final parts = (ins.phaseAverages.entries.toList()
+          ..sort((a, b) => a.value.compareTo(b.value)))
+        .map((e) =>
+            '${(phaseLabels[e.key] ?? e.key).toLowerCase()} ${e.value.round()}')
+        .join(', ');
+    final weakest = ins.weakestPhase;
+    final b = StringBuffer('By swing phase: $parts.');
+    if (weakest != null) {
+      b.write(' ${phaseLabels[weakest] ?? weakest} is where you\'re losing '
+          'the most, so that\'s where the next session\'s focus goes.');
+    }
+    return b.toString();
+  }
+
+  String _timelineAnswer(String? metricId) {
+    final ins = facts.insights;
+    if (ins == null) return _noDeepData;
+    if (metricId != null) {
+      final m = ins.metrics.where((m) => m.id == metricId).firstOrNull;
+      final label = metricLabels[metricId] ?? metricId.replaceAll('_', ' ');
+      if (m == null) {
+        return '$label stayed in range all ${_sessionLabel()} — no early '
+            'or late pattern to fix there.';
+      }
+      final h1 = (m.firstHalfRate * 100).round();
+      final h2 = (m.secondHalfRate * 100).round();
+      return switch (m.trend) {
+        'improving' =>
+          '$label missed on $h1% of early shots but only $h2% late — that '
+              'correction stuck. Keep cueing it early next session.',
+        'worsening' =>
+          '$label held early at $h1% missed, then slipped to $h2% late — '
+              'that\'s a fatigue tell. When you tire, that\'s the first '
+              'habit to guard.',
+        _ =>
+          '$label missed at about the same rate all session ($h1% early, '
+              '$h2% late) — steady, so it\'s technique, not fatigue. '
+              'Drill it fresh.',
+      };
+    }
+    if (ins.timeline.length < 2) {
+      return 'Too few shots to split the ${_sessionLabel()} into early and '
+          'late — get more balls in next time and I\'ll show the arc.';
+    }
+    final first = ins.timeline.first.round();
+    final last = ins.timeline.last.round();
+    final b = StringBuffer(switch (last - first) {
+      > 4 => 'You opened around $first and finished around $last — '
+          'stronger as the session went. That\'s the swing settling in.',
+      < -4 => 'You opened around $first but faded to $last late — '
+          'legs go first, so shorten sessions or add a breather.',
+      _ => 'Steady session: around $first early, $last late. '
+          'Consistency like that is a base to build intensity on.',
+    });
+    if (ins.bestCleanStreak >= 3) {
+      b.write(' Best run: ${ins.bestCleanStreak} clean shots in a row.');
+    }
+    return b.toString();
+  }
+
+  String _consistencyAnswer() {
+    final ins = facts.insights;
+    if (ins == null) return _noDeepData;
+    final c = ins.consistency.round();
+    final read = c >= 80
+        ? 'tightly grouped — very repeatable'
+        : c >= 60
+            ? 'reasonably grouped, with a few outliers'
+            : 'scattered — big swings between your best and worst';
+    final b = StringBuffer(
+        'Consistency $c out of a hundred this ${_sessionLabel()}: '
+        'your shot scores were $read.');
+    if (ins.bestCleanStreak >= 2) {
+      b.write(' Longest clean streak: ${ins.bestCleanStreak} shots.');
+    }
+    if (c < 60 && facts.improvements.isNotEmpty) {
+      b.write(' Taming ${facts.improvements.first.title.toLowerCase()} is '
+          'the fastest way to tighten that spread.');
+    }
+    return b.toString();
+  }
+
+  String _bestShotAnswer() {
+    final ins = facts.insights;
+    if (ins == null) return _noDeepData;
+    if (ins.bestShotIndex < 0) {
+      return 'No shots registered this ${_sessionLabel()}, so no best one '
+          'to point at yet.';
+    }
+    final t = _formatOffset(ins.bestShotOffsetMs);
+    return 'Best shot of the day: number ${ins.bestShotIndex + 1}, '
+        '${t.isEmpty ? 'early in the session' : '$t in'}, scoring '
+        '${ins.bestShotScore.round()}. Whatever you felt on that one — '
+        'that\'s the swing we\'re chasing every time.';
+  }
+
+  String _progressAnswer() {
+    if (facts.history.isEmpty) {
+      return 'This is your first stored session, so there\'s nothing to '
+          'compare against yet — today\'s ${facts.score} is the baseline. '
+          'Everything from here is progress we can measure.';
+    }
+    final sameType =
+        facts.history.where((h) => h.type == facts.type).firstOrNull;
+    final b = StringBuffer();
+    if (sameType != null) {
+      final diff = facts.score - sameType.score;
+      b.write('Last ${facts.type} session (${sameType.date}) you scored '
+          '${sameType.score}; today ${facts.score} — ');
+      b.write(diff > 0
+          ? 'up $diff. The work is landing.'
+          : diff < 0
+              ? '${-diff} down. One session isn\'t a trend; watch the '
+                  'next one.'
+              : 'dead even. Time to raise the intensity.');
+    } else {
+      final latest = facts.history.first;
+      b.write('No previous ${facts.type} session to compare, but your last '
+          'session (${latest.type}, ${latest.date}) scored ${latest.score} '
+          'and today you hit ${facts.score}.');
+    }
+    if (facts.history.length >= 2) {
+      final mean = facts.history.map((h) => h.score).reduce((a, b) => a + b) /
+          facts.history.length;
+      b.write(' Across your last ${facts.history.length} sessions you\'ve '
+          'averaged ${mean.round()}.');
+    }
+    return b.toString();
+  }
+
+  static String _formatOffset(int ms) {
+    if (ms <= 0) return '';
+    final s = ms ~/ 1000;
+    return '${(s ~/ 60).toString().padLeft(2, '0')}:'
+        '${(s % 60).toString().padLeft(2, '0')}';
   }
 
   String _workOnAnswer() {

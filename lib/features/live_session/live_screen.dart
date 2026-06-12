@@ -19,6 +19,7 @@ import '../../app/theme.dart';
 import '../../core/engine/engine_types.dart';
 import '../../core/session/orchestrator.dart';
 import '../../core/session/shot_processor.dart';
+import '../../core/session/summary_generator.dart';
 import '../../shared/widgets/rally_arc.dart';
 import '../../shared/widgets/rc_widgets.dart';
 import '../../shared/widgets/skeleton_overlay.dart';
@@ -161,6 +162,12 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
                       Text(type.toUpperCase(),
                           style: RcType.heading
                               .copyWith(color: RcColors.court, fontSize: 16)),
+                      if (_stats.isSessionBest && _lastFlash) ...[
+                        const SizedBox(width: 12),
+                        Text('NEW BEST',
+                            style: RcType.heading.copyWith(
+                                color: RcColors.ball, fontSize: 16)),
+                      ],
                       const Spacer(),
                       Text('$mm:$ss',
                           style: RcType.stat.copyWith(
@@ -198,6 +205,14 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
                       ),
                     ],
                   ),
+                  if (!paused && _stats.focusMetricId != null)
+                    Text(
+                      'FOCUS · '
+                      '${(metricLabels[_stats.focusMetricId] ?? _stats.focusMetricId!.replaceAll('_', ' ')).toUpperCase()}',
+                      style: RcType.caption.copyWith(
+                          color: RcColors.ball,
+                          fontWeight: FontWeight.w700),
+                    ),
                   const Spacer(),
                   Center(
                       child: CaptionBar(
@@ -205,6 +220,13 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
                               ? 'PAUSED — step back in when ready'
                               : _caption)),
                   const SizedBox(height: 12),
+                  if (!paused && _stats.recentScores.length >= 2) ...[
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: _ScoreSparkline(scores: _stats.recentScores),
+                    ),
+                    const SizedBox(height: 6),
+                  ],
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -215,12 +237,52 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
                         highlight: _lastFlash,
                       ),
                       _LiveStat(label: 'AVG', value: '${_stats.avgScore}'),
+                      _LiveStat(
+                        label: 'STREAK',
+                        value: '${_stats.cleanStreak}',
+                        highlight: _stats.cleanStreak >= 3,
+                      ),
                     ],
                   ),
                 ],
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Last-12-shots score bars — readable from across the court: taller and
+/// greener is better, clay marks the below-average dips.
+class _ScoreSparkline extends StatelessWidget {
+  const _ScoreSparkline({required this.scores});
+
+  final List<int> scores;
+
+  @override
+  Widget build(BuildContext context) {
+    final avg = scores.reduce((a, b) => a + b) / scores.length;
+    return SizedBox(
+      height: 28,
+      width: 12.0 * scores.length,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          for (var s = 0; s < scores.length; s++) ...[
+            if (s > 0) const SizedBox(width: 3),
+            Container(
+              width: 9,
+              height: 4 + (scores[s].clamp(0, 100) / 100) * 24,
+              decoration: BoxDecoration(
+                color: scores[s] >= avg
+                    ? RcColors.ball
+                    : RcColors.court.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(1.5),
+              ),
+            ),
+          ],
         ],
       ),
     );

@@ -102,12 +102,21 @@ void main() {
     expect(summary.drillIds, ['early_turn', 'shadow_swing']);
   });
 
-  test('DrillCatalog.forDeviations dedupes drills fixing multiple ids', () {
+  test('DrillCatalog.forDeviations interleaves one drill per id, deduped',
+      () {
+    // early_turn and two_bounce_prep both fix shoulder_turn AND prep; the
+    // shared drills appear once, breadth-first across the two ids.
     final drills =
         catalog.forDeviations(['shoulder_turn', 'prep_before_contact_ms']);
-    expect([for (final d in drills) d.id], ['early_turn']);
-    expect(catalog.drills, hasLength(10));
+    expect([for (final d in drills) d.id],
+        ['early_turn', 'two_bounce_prep', 'backhand_coil']);
+    expect(catalog.drills, hasLength(24));
     expect(catalog.forDeviations(['unknown_metric']), isEmpty);
+
+    // Breadth before depth: two ids -> first drill of each, not two for one.
+    final spread = catalog.forDeviations(['shoulder_turn', 'knee_flexion']);
+    expect([for (final d in spread.take(2)) d.id],
+        ['early_turn', 'low_base']);
   });
 
   test('score trend description compares halves with a 4-point band', () {

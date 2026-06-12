@@ -11,12 +11,14 @@ import 'package:drift/drift.dart';
 import 'database.dart';
 
 /// Per-shot data accepted by [SessionRepository.insertSession].
-/// `phaseScores` is a pre-serialized JSON map of phase id → score.
+/// `phaseScores` is a pre-serialized JSON map of phase id → score;
+/// `deviations` a pre-serialized JSON array of every deviation on the shot.
 typedef SessionShot = ({
   String stroke,
   double score,
   String phaseScores,
   String? topDeviationId,
+  String deviations,
   int tOffsetMs,
 });
 
@@ -43,6 +45,7 @@ class SessionRepository {
     String encouragement = '',
     String highlights = '[]',
     String strokeSequence = '[]',
+    String insights = '',
   }) {
     return db.transaction(() async {
       final sessionId = await db.into(db.sessions).insert(
@@ -62,6 +65,7 @@ class SessionRepository {
               encouragement: Value(encouragement),
               highlights: Value(highlights),
               strokeSequence: Value(strokeSequence),
+              insights: Value(insights),
             ),
           );
 
@@ -73,6 +77,7 @@ class SessionRepository {
                 score: shot.score,
                 phaseScores: shot.phaseScores,
                 topDeviationId: Value(shot.topDeviationId),
+                deviations: Value(shot.deviations),
                 tOffsetMs: shot.tOffsetMs,
               ),
             );
@@ -249,6 +254,42 @@ class SessionRepository {
       return '"${s.replaceAll('"', '""')}"';
     }
     return s;
+  }
+
+  /// Compact aggregates of up to [limit] sessions before [excludeSessionId],
+  /// newest first — fills the chat prompt's "RECENT HISTORY" slot so the
+  /// coach can answer "am I improving?" with real prior-session numbers.
+  Future<List<Map<String, dynamic>>> historyAggregates({
+    required int excludeSessionId,
+    int limit = 5,
+  }) async {
+    final rows = await (db.select(db.sessions)
+          ..where((s) => s.id.equals(excludeSessionId).not())
+          ..orderBy([(s) => OrderingTerm.desc(s.startedAt)])
+          ..limit(limit))
+        .get();
+    return [
+      for (final s in rows)
+        {
+          'date':
+              '${s.startedAt.year}-${s.startedAt.month.toString().padLeft(2, '0')}-${s.startedAt.day.toString().padLeft(2, '0')}',
+          'type': s.type,
+          'score': s.overallScore.round(),
+          'shots': s.shotsTotal,
+          if (_topImprovementTitle(s.summaryImprove) != null)
+            'top_issue': _topImprovementTitle(s.summaryImprove),
+        },
+    ];
+  }
+
+  static String? _topImprovementTitle(String summaryImprove) {
+    try {
+      final list =
+          (jsonDecode(summaryImprove) as List).cast<Map<String, dynamic>>();
+      return list.isEmpty ? null : list.first['title'] as String?;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Wipes every table. Irreversible; gated behind a confirm dialog in UI.

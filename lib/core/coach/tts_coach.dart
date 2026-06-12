@@ -135,9 +135,19 @@ class TtsCoach {
     unawaited(_drain());
   }
 
+  /// Best-effort haptic tap; speech must never depend on the services
+  /// binding being up (plain unit tests construct TtsCoach directly).
+  static void _haptic(Future<void> Function() impact) {
+    try {
+      unawaited(impact().catchError((Object _) {}));
+    } catch (_) {
+      // No binding / no vibrator — the voice still works.
+    }
+  }
+
   Future<void> _speakSystem(String text) async {
     await _engine.stop();
-    unawaited(HapticFeedback.mediumImpact());
+    _haptic(HapticFeedback.mediumImpact);
     _emit(text, CoachUtteranceKind.system);
     _speaking = true;
     try {
@@ -159,7 +169,7 @@ class TtsCoach {
     if (next.kind == CoachUtteranceKind.filler) _lastFillerMs = now;
     _emit(next.text, next.kind);
     if (next.kind == CoachUtteranceKind.cue) {
-      unawaited(HapticFeedback.lightImpact());
+      _haptic(HapticFeedback.lightImpact);
     }
     _speaking = true;
     try {

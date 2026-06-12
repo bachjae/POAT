@@ -13,6 +13,7 @@ SessionShot shot(String stroke, double score, {int tOffsetMs = 0}) => (
       score: score,
       phaseScores: '{}',
       topDeviationId: null,
+      deviations: '[]',
       tOffsetMs: tOffsetMs,
     );
 
@@ -202,6 +203,85 @@ void main() {
     expect(s!.strokeSequence, '["forehand","backhand"]');
   });
 
+  test('insertSession persists insights and per-shot deviations', () async {
+    final id = await repo.insertSession(
+      startedAt: base,
+      durationS: 600,
+      type: 'forehand',
+      coachId: 'maya',
+      skillTier: 'intermediate',
+      overallScore: 60,
+      summaryGood: '[]',
+      summaryImprove: '[]',
+      drills: '[]',
+      insights: '{"consistency":81.5}',
+      shots: [
+        (stroke: 'forehand', score: 60, phaseScores: '{}',
+         topDeviationId: 'shoulder_turn',
+         deviations:
+             '[{"id":"shoulder_turn","phase":"preparation","direction":"low","severity":0.6}]',
+         tOffsetMs: 0),
+      ],
+    );
+    final s = await repo.lastSession();
+    expect(s!.insights, '{"consistency":81.5}');
+    final shots = await repo.shotsForSession(id);
+    expect(shots.single.deviations, contains('shoulder_turn'));
+    expect(shots.single.deviations, contains('preparation'));
+  });
+
+  test('insights defaults to empty string when not provided', () async {
+    await addSession(at: base);
+    final s = await repo.lastSession();
+    expect(s!.insights, '');
+  });
+
+  test('historyAggregates returns previous sessions newest first, '
+      'excluding the given session', () async {
+    final id1 = await addSession(at: base, type: 'forehand', overall: 40);
+    await addSession(
+        at: base.add(const Duration(days: 1)), type: 'serve', overall: 55);
+    final id3 = await addSession(
+        at: base.add(const Duration(days: 2)),
+        type: 'forehand',
+        overall: 62,
+        shots: [shot('forehand', 62)]);
+
+    final history = await repo.historyAggregates(excludeSessionId: id3);
+    expect(history, hasLength(2));
+    expect(history.first['type'], 'serve');
+    expect(history.first['score'], 55);
+    expect(history.last['score'], 40);
+    expect([for (final h in history) h['score']], isNot(contains(62)));
+
+    // Excluding a middle session keeps the others.
+    final all = await repo.historyAggregates(excludeSessionId: id1);
+    expect(all, hasLength(2));
+    expect(all.first['score'], 62);
+    expect(all.first['shots'], 1);
+    expect(all.first['date'], '2024-05-18');
+  });
+
+  test('historyAggregates surfaces the top improvement title', () async {
+    await repo.insertSession(
+      startedAt: base,
+      durationS: 600,
+      type: 'forehand',
+      coachId: 'maya',
+      skillTier: 'intermediate',
+      overallScore: 58,
+      summaryGood: '[]',
+      summaryImprove:
+          '[{"title":"Shoulder turn timing","detail":"late on 7 of 10 shots",'
+          '"deviationId":"shoulder_turn"}]',
+      drills: '[]',
+      shots: [],
+    );
+    final id2 = await addSession(at: base.add(const Duration(days: 1)));
+    final history = await repo.historyAggregates(excludeSessionId: id2);
+    expect(history.single['top_issue'], 'Shoulder turn timing');
+  });
+
   test('goals: insert, list active, deactivate, current rate', () async {
     final id1 = await repo.insertGoal(
         metricId: 'elbow_angle', stroke: 'forehand', targetRate: 0.2);
@@ -230,9 +310,10 @@ void main() {
       drills: '[]',
       shots: [
         (stroke: 'forehand', score: 55, phaseScores: '{}',
-         topDeviationId: 'elbow_angle', tOffsetMs: 0),
+         topDeviationId: 'elbow_angle',
+         deviations: '[{"id":"elbow_angle"}]', tOffsetMs: 0),
         (stroke: 'forehand', score: 65, phaseScores: '{}',
-         topDeviationId: null, tOffsetMs: 5000),
+         topDeviationId: null, deviations: '[]', tOffsetMs: 5000),
       ],
     );
     final rate = await repo.goalCurrentRate('elbow_angle', 'forehand');

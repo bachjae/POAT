@@ -20,6 +20,30 @@ the engine sees them. Live shot-detection windows are specified in
 milliseconds and adapt to the measured frame rate, so thermal fps drops
 don't silently change detection behavior.
 
+## Tracking, live analysis, and the post-session debrief
+
+Every shot is stored with its **full deviation list** (id, phase,
+direction, severity), not just the headline problem, and each session
+persists a computed **insights blob**
+(`lib/core/session/session_insights.dart`): per-stroke averages/best/worst,
+per-swing-phase scores, per-metric in-range rates split into session halves
+(improving / worsening / steady), a score timeline, a consistency index,
+clean-streak and best-shot markers, and the goal-metric outcome.
+
+Live, the HUD shows a last-12-shots sparkline, the coach's current focus
+metric, and a clean-streak counter; the coach speaks deterministic
+**milestones** on top of technique cues — new session best, clean-streak
+calls, and a check-in every ten shots with the running average and trend
+(all three personalities carry dedicated phrase-bank slots for these).
+
+The summary screen renders the insights (timeline, stroke breakdown,
+swing-phase bars with the weakest phase called out, consistency / streak /
+best-shot chips), and **"Ask your coach" is grounded in the same data**:
+the Gemma chat receives the full insights JSON plus aggregates of the last
+5 sessions (the prompt's history slot), and the Lite coach answers
+stroke-, phase-, timeline-, consistency-, best-shot- and
+progress-versus-history questions from the stored numbers alone.
+
 Every LLM cue passes a **validator** (`lib/core/brain/cue_validator.dart`)
 before it is spoken: it must reference a metric that actually deviated,
 contain no numbers, stay short, and not repeat itself — otherwise the
@@ -72,7 +96,7 @@ airplane forever.
 
 ```bash
 flutter analyze                          # zero issues
-flutter test                             # 123 tests
+flutter test                             # 155 tests
 (cd python_lab && python3 validate_engine.py)  # engine math validation
 ```
 
@@ -109,6 +133,9 @@ python3 build_phrase_banks.py
   ("limited angle — footwork cues only").
 - Gemma 4 E4B "Pro" model: planned as a file-import upgrade in Settings
   (keeps the no-INTERNET claim); UI hook exists, import flow not yet wired.
+- `file_picker` rides a 12.0.0 beta: wakelock_plus 1.6.1 moved to win32 6
+  and the beta is the first file_picker release that follows — pin back to
+  stable as soon as 12.0.0 lands (`pubspec.yaml` documents this).
 - iOS: model file iCloud-backup exclusion needs a small platform channel
   (TODO in `model_manager.dart`); device-matrix perf/thermal tuning
   (PRD M6) requires physical hardware.
