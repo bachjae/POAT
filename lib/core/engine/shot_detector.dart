@@ -91,20 +91,28 @@ List<ShotWindow> detectShots(
 }
 
 /// Decision rules over the swing window (frames normalized + mirrored).
-Stroke classifyShot(List<TimedKeypoints> frames, ShotWindow shot) {
+///
+/// Returns `(stroke, confidence)` where confidence (0–1) reflects how
+/// strongly the discriminating signal supports the label. Forehand/backhand
+/// labels with confidence below 0.45 are downgraded to [Stroke.footwork].
+(Stroke, double) classifyShot(List<TimedKeypoints> frames, ShotWindow shot) {
   final s = shot.start, p = shot.peak;
+  final windowLen = (p - s + 1).clamp(1, 1 << 30);
   final peakKp = frames[p].keypoints;
-  var bothUp = false;
+
+  var bothUpCount = 0;
   for (var i = s; i <= p; i++) {
     final kp = frames[i].keypoints;
     if (kp[Kp.leftWrist][1] > kp[Kp.leftShoulder][1] &&
         kp[Kp.rightWrist][1] > kp[Kp.rightShoulder][1]) {
-      bothUp = true;
-      break;
+      bothUpCount++;
     }
   }
   final overhead = peakKp[Kp.rightWrist][1] > peakKp[Kp.nose][1];
-  if (bothUp && overhead) return Stroke.serve;
+  if (bothUpCount > 0 && overhead) {
+    final serveConf = (bothUpCount / windowLen).clamp(0.0, 1.0);
+    return (Stroke.serve, serveConf);
+  }
 
   var minX = double.infinity, maxX = double.negativeInfinity;
   for (var i = s; i <= p; i++) {
@@ -112,11 +120,20 @@ Stroke classifyShot(List<TimedKeypoints> frames, ShotWindow shot) {
     if (x < minX) minX = x;
     if (x > maxX) maxX = x;
   }
-  if (maxX - minX < 0.9) return Stroke.volley;
+  final horizRange = maxX - minX;
+  if (horizRange < 0.9) {
+    final volleyConf = (1.0 - horizRange / 0.9).clamp(0.0, 1.0);
+    return (Stroke.volley, volleyConf);
+  }
 
   final bwI = backswingFrame(frames, s, p);
   final bwX = frames[bwI].keypoints[Kp.rightWrist][0];
-  return bwX >= 0.0 ? Stroke.forehand : Stroke.backhand;
+  final fbConf = (bwX.abs().clamp(0.0, 1.2) / 1.2);
+  final stroke = bwX >= 0.0 ? Stroke.forehand : Stroke.backhand;
+  // Low-confidence forehand/backhand in ambiguous side views; downgrade to
+  // footwork cues rather than coaching on a mislabelled stroke.
+  if (fbConf < 0.45) return (Stroke.footwork, fbConf);
+  return (stroke, fbConf);
 }
 
 /// Wrist rearmost point: min projection onto the swing direction at peak.

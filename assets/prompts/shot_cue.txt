@@ -3,4 +3,4 @@ Player: {skill_tier}, {handedness}-handed. Drill: {session_type}.
 This shot ({stroke}, score {score}): deviations:
 {deviations}
 Context: shot {shot_number} of session; avg score trend {trend} over last 10 shots; last 3 cues given: {recent_cues}.
-Reply with ONE spoken cue, max 12 words, addressing the most impactful issue considering the context. No numbers. No preamble.
+Reply with ONE spoken cue, max 15 words, addressing the most impactful issue considering the context. No numbers. No preamble.

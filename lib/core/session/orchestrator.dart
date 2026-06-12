@@ -346,8 +346,9 @@ class SessionOrchestrator {
       // Replace only while the rule cue is still queued; once spoken, a
       // second cue for the same shot would double-talk.
       if (_spokenCueCount > cueCountAtSubmit) return;
-      coach.submit(reply.trim(), CoachUtteranceKind.cue, metricId: picked.id);
-      _rememberCue(reply.trim());
+      coach.submit(verdict.acceptedCue, CoachUtteranceKind.cue,
+          metricId: picked.id);
+      _rememberCue(verdict.acceptedCue);
     } on TimeoutException {
       // Rule cue already queued — deadline elapsed, nothing to do.
     } catch (_) {
@@ -387,9 +388,12 @@ class SessionOrchestrator {
 
     var headline = '';
     var encouragement = '';
+    var brainGood = <String>[];
+    var brainWorkOn = <String>[];
     final b = brain;
     if (b != null && prompts != null && _shots.isNotEmpty) {
-      (headline, encouragement) = await _brainSummary(summary, durationS);
+      (headline, encouragement, brainGood, brainWorkOn) =
+          await _brainSummary(summary, durationS);
     }
 
     final sessionId = await repository.insertSession(
@@ -399,10 +403,17 @@ class SessionOrchestrator {
       coachId: config.coachId,
       skillTier: _tier,
       overallScore: summary.overallScore,
-      summaryGood: jsonEncode(summary.strengths),
+      summaryGood:
+          jsonEncode(brainGood.isNotEmpty ? brainGood : summary.strengths),
       summaryImprove: jsonEncode([
-        for (final i in summary.improvements)
-          {'title': i.title, 'detail': i.detail, 'deviationId': i.deviationId},
+        for (var idx = 0; idx < summary.improvements.length; idx++)
+          {
+            'title': summary.improvements[idx].title,
+            'detail': idx < brainWorkOn.length
+                ? brainWorkOn[idx]
+                : summary.improvements[idx].detail,
+            'deviationId': summary.improvements[idx].deviationId,
+          },
       ]),
       drills: jsonEncode(summary.drillIds),
       headline: headline,
@@ -424,10 +435,10 @@ class SessionOrchestrator {
     return SessionResult(sessionId: sessionId, summary: summary);
   }
 
-  Future<(String, String)> _brainSummary(
+  Future<(String, String, List<String>, List<String>)> _brainSummary(
       SessionSummaryData summary, int durationS) async {
     try {
-      if (!await brain!.isAvailable()) return ('', '');
+      if (!await brain!.isAvailable()) return ('', '', [], []);
       final strokeAverages = <String, List<double>>{};
       for (final s in _shots) {
         strokeAverages.putIfAbsent(s.stroke.id, () => []).add(s.score.score);
@@ -459,13 +470,19 @@ class SessionOrchestrator {
           maxTokens: 700, deadline: const Duration(seconds: 20));
       final json = jsonDecode(
           reply.substring(reply.indexOf('{'), reply.lastIndexOf('}') + 1));
-      if (json is! Map<String, dynamic>) return ('', '');
+      if (json is! Map<String, dynamic>) return ('', '', [], []);
+      final brainGood =
+          (json['what_worked'] as List?)?.cast<String>() ?? <String>[];
+      final brainWorkOn =
+          (json['work_on'] as List?)?.cast<String>() ?? <String>[];
       return (
         (json['headline'] as String?) ?? '',
         (json['encouragement'] as String?) ?? '',
+        brainGood,
+        brainWorkOn,
       );
     } catch (_) {
-      return ('', ''); // Rule-based summary stands on its own.
+      return ('', '', [], []); // Rule-based summary stands on its own.
     }
   }
 

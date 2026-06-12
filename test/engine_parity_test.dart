@@ -152,8 +152,9 @@ void main() {
         expect(shot.peakSpeed,
             closeTo((expected['peak_speed'] as num).toDouble(), 0.05));
 
-        final stroke = classifyShot(stream.frames, shot);
+        final (stroke, classConf) = classifyShot(stream.frames, shot);
         expect(stroke.id, expected['stroke']);
+        expect(classConf, greaterThan(0.0));
 
         final phases = segmentPhases(stream.frames, shot, stroke);
         final expPhases = expected['phases'] as Map<String, dynamic>;

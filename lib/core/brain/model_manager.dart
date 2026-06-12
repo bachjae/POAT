@@ -21,6 +21,8 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../platform/backup_exclusion.dart';
+
 /// Lifecycle of the on-device model file.
 enum BrainStatus {
   /// No usable model file (no chunks bundled, or not yet reassembled).
@@ -142,11 +144,6 @@ class ModelManager {
   bool _liteOnly = false;
 
   /// Absolute path of the reassembled model file.
-  ///
-  /// TODO(ios): exclude this file from iCloud backup. Requires a platform
-  /// channel setting `NSURLIsExcludedFromBackupKey` on the file URL
-  /// (`URLResourceValues.isExcludedFromBackup = true`) right after the
-  /// first successful [prepare]; there is no Dart-side API for it.
   String get modelFilePath => '${_targetDir.path}/$kModelFileName';
 
   String get _metaFilePath => '${_targetDir.path}/$kModelMetaFileName';
@@ -256,6 +253,13 @@ class ModelManager {
 
       await File(_metaFilePath)
           .writeAsString(jsonEncode({'size': size, 'sha256': actual}));
+      // Exclude the large model file from iCloud backup on iOS.
+      try {
+        await BackupExclusion.excludeFromBackup(modelFilePath);
+      } catch (_) {
+        // Swallow MissingPluginException in test environments; the attribute
+        // persists on the real filesystem once set successfully.
+      }
       yield 1.0;
     } catch (_) {
       _failed = true;
