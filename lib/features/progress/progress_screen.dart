@@ -37,6 +37,9 @@ final _metricTrendProvider = FutureProvider.family<
     String>((ref, stroke) =>
     ref.watch(repositoryProvider).metricTrendFor(stroke));
 
+final _activeGoalsProvider = FutureProvider<List<Goal>>(
+    (ref) => ref.watch(repositoryProvider).getActiveGoals());
+
 final _sessionsProvider = StreamProvider<List<Session>>(
     (ref) => ref.watch(repositoryProvider).watchRecentSessions(limit: 50));
 
@@ -49,6 +52,7 @@ class ProgressScreen extends ConsumerWidget {
     final trend = ref.watch(_trendProvider(stroke));
     final metricTrend = ref.watch(_metricTrendProvider(stroke));
     final sessions = ref.watch(_sessionsProvider);
+    final activeGoals = ref.watch(_activeGoalsProvider);
 
     return Scaffold(
       body: SafeArea(
@@ -106,6 +110,23 @@ class ProgressScreen extends ConsumerWidget {
               const SizedBox(height: 16),
               const Divider(),
               const SizedBox(height: 12),
+              activeGoals.when(
+                loading: () => const SizedBox.shrink(),
+                error: (_, _) => const SizedBox.shrink(),
+                data: (goals) => goals.isEmpty
+                    ? const SizedBox.shrink()
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Divider(),
+                          const SizedBox(height: 12),
+                          const Text('GOALS', style: RcType.caption),
+                          const SizedBox(height: 8),
+                          _GoalsSection(goals: goals),
+                          const SizedBox(height: 12),
+                        ],
+                      ),
+              ),
               const Text('SESSIONS', style: RcType.caption),
               const SizedBox(height: 4),
               Expanded(
@@ -288,6 +309,81 @@ class _MetricTrendBars extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _GoalsSection extends ConsumerWidget {
+  const _GoalsSection({required this.goals});
+
+  final List<Goal> goals;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Column(
+      children: [
+        for (final goal in goals)
+          _GoalRow(
+            goal: goal,
+            onDeactivate: () async {
+              await ref.read(repositoryProvider).deactivateGoal(goal.id);
+              ref.invalidate(_activeGoalsProvider);
+            },
+          ),
+      ],
+    );
+  }
+}
+
+final _goalRateProvider =
+    FutureProvider.family<double?, ({String metricId, String stroke})>(
+  (ref, key) =>
+      ref.watch(repositoryProvider).goalCurrentRate(key.metricId, key.stroke),
+);
+
+class _GoalRow extends ConsumerWidget {
+  const _GoalRow({required this.goal, required this.onDeactivate});
+
+  final Goal goal;
+  final VoidCallback onDeactivate;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final rate = ref.watch(
+        _goalRateProvider((metricId: goal.metricId, stroke: goal.stroke)));
+    final current = rate.value;
+    final label = goal.metricId.replaceAll('_', ' ');
+    final strokeLabel =
+        goal.stroke[0].toUpperCase() + goal.stroke.substring(1);
+    final targetPct = '${(goal.targetRate * 100).round()}%';
+    final currentPct =
+        current != null ? '${(current * 100).round()}%' : '–';
+    final onTrack = current != null && current <= goal.targetRate;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('$label · $strokeLabel', style: RcType.body),
+                Text(
+                  'Current: $currentPct  Target: ≤$targetPct',
+                  style: RcType.caption.copyWith(
+                      color: onTrack ? RcColors.ball : RcColors.clay),
+                ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: onDeactivate,
+            child:
+                const Icon(Icons.close, size: 16, color: RcColors.lineDim),
+          ),
+        ],
+      ),
     );
   }
 }

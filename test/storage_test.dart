@@ -183,4 +183,60 @@ void main() {
     expect(await repo.getSetting('coach_id'), isNull);
     expect(await repo.streakDays(base), 0);
   });
+
+  test('insertSession persists strokeSequence', () async {
+    await repo.insertSession(
+      startedAt: base,
+      durationS: 600,
+      type: 'forehand',
+      coachId: 'maya',
+      skillTier: 'intermediate',
+      overallScore: 60,
+      summaryGood: '[]',
+      summaryImprove: '[]',
+      drills: '[]',
+      shots: [],
+      strokeSequence: '["forehand","backhand"]',
+    );
+    final s = await repo.lastSession();
+    expect(s!.strokeSequence, '["forehand","backhand"]');
+  });
+
+  test('goals: insert, list active, deactivate, current rate', () async {
+    final id1 = await repo.insertGoal(
+        metricId: 'elbow_angle', stroke: 'forehand', targetRate: 0.2);
+    await repo.insertGoal(
+        metricId: 'knee_flexion', stroke: 'serve', targetRate: 0.15);
+
+    final active = await repo.getActiveGoals();
+    expect(active, hasLength(2));
+    expect(active.map((g) => g.metricId), containsAll(['elbow_angle', 'knee_flexion']));
+
+    await repo.deactivateGoal(id1);
+    final afterDeactivate = await repo.getActiveGoals();
+    expect(afterDeactivate, hasLength(1));
+    expect(afterDeactivate.single.metricId, 'knee_flexion');
+
+    // Current rate: 2 forehand shots, 1 with elbow_angle as top deviation.
+    await repo.insertSession(
+      startedAt: base,
+      durationS: 300,
+      type: 'forehand',
+      coachId: 'maya',
+      skillTier: 'intermediate',
+      overallScore: 55,
+      summaryGood: '[]',
+      summaryImprove: '[]',
+      drills: '[]',
+      shots: [
+        (stroke: 'forehand', score: 55, phaseScores: '{}',
+         topDeviationId: 'elbow_angle', tOffsetMs: 0),
+        (stroke: 'forehand', score: 65, phaseScores: '{}',
+         topDeviationId: null, tOffsetMs: 5000),
+      ],
+    );
+    final rate = await repo.goalCurrentRate('elbow_angle', 'forehand');
+    expect(rate, closeTo(0.5, 1e-9));
+    expect(await repo.goalCurrentRate('elbow_angle', 'serve'), isNull);
+  });
 }

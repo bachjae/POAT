@@ -59,6 +59,7 @@ class PromptBuilder {
   /// Selects a stroke-specific template when available, falling back to the
   /// generic template. [classificationConf] and [viewConfidence] are injected
   /// into stroke-specific templates that expose those slots.
+  /// [sessionFocus] and [goalMetric] add context lines when non-null.
   String shotCue({
     required String personalityName,
     required String personalityStyle,
@@ -74,6 +75,8 @@ class PromptBuilder {
     required List<String> recentCues,
     double classificationConf = 1.0,
     double viewConfidence = 1.0,
+    String? sessionFocus,
+    String? goalMetric,
   }) {
     return _render(_strokeTemplateKey(stroke), {
       'personality_name': personalityName,
@@ -89,6 +92,9 @@ class PromptBuilder {
       'recent_cues': recentCues.isEmpty ? 'none' : recentCues.join('; '),
       'classification_conf': classificationConf.toStringAsFixed(2),
       'view_confidence': viewConfidence.toStringAsFixed(2),
+      'session_focus':
+          sessionFocus != null ? ' Session focus: $sessionFocus.' : '',
+      'goal_metric': goalMetric != null ? ' Goal: $goalMetric.' : '',
     });
   }
 

@@ -42,6 +42,7 @@ class SessionRepository {
     String headline = '',
     String encouragement = '',
     String highlights = '[]',
+    String strokeSequence = '[]',
   }) {
     return db.transaction(() async {
       final sessionId = await db.into(db.sessions).insert(
@@ -60,6 +61,7 @@ class SessionRepository {
               headline: Value(headline),
               encouragement: Value(encouragement),
               highlights: Value(highlights),
+              strokeSequence: Value(strokeSequence),
             ),
           );
 
@@ -255,5 +257,43 @@ class SessionRepository {
         await db.delete(db.sessions).go();
         await db.delete(db.strokeTrends).go();
         await db.delete(db.settings).go();
+        await db.delete(db.goals).go();
       });
+
+  // ── Goals ─────────────────────────────────────────────────────────────────
+
+  Future<List<Goal>> getActiveGoals() => (db.select(db.goals)
+        ..where((g) => g.active.equals(true))
+        ..orderBy([(g) => OrderingTerm.desc(g.createdAt)]))
+      .get();
+
+  Future<int> insertGoal({
+    required String metricId,
+    required String stroke,
+    required double targetRate,
+  }) =>
+      db.into(db.goals).insert(
+            GoalsCompanion.insert(
+              metricId: metricId,
+              stroke: stroke,
+              targetRate: targetRate,
+              createdAt: DateTime.now(),
+            ),
+          );
+
+  Future<void> deactivateGoal(int id) async {
+    await (db.update(db.goals)..where((g) => g.id.equals(id)))
+        .write(const GoalsCompanion(active: Value(false)));
+  }
+
+  /// Fraction of shots for [stroke] where [metricId] was the top deviation.
+  Future<double?> goalCurrentRate(String metricId, String stroke) async {
+    final shots = await (db.select(db.shotStats)
+          ..where((s) => s.stroke.equals(stroke)))
+        .get();
+    if (shots.isEmpty) return null;
+    final matched =
+        shots.where((s) => s.topDeviationId == metricId).length;
+    return matched / shots.length;
+  }
 }

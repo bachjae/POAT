@@ -40,6 +40,11 @@ class Sessions extends Table {
 
   /// JSON array of {tOffsetMs, shotIndex} bookmarks from the live screen.
   TextColumn get highlights => text().withDefault(const Constant('[]'))();
+
+  /// JSON array of stroke ids for multi-stroke sequences, e.g.
+  /// ['forehand','backhand']. Empty array means single-stroke session.
+  TextColumn get strokeSequence =>
+      text().withDefault(const Constant('[]'))();
 }
 
 /// One scored shot within a session.
@@ -71,6 +76,17 @@ class StrokeTrends extends Table {
   Set<Column<Object>> get primaryKey => {stroke, weekStart};
 }
 
+/// A coaching goal the player wants to improve in upcoming sessions.
+class Goals extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get metricId => text()();
+  TextColumn get stroke => text()();
+  RealColumn get targetRate => real()();
+  DateTimeColumn get createdAt => dateTime()();
+  BoolColumn get active =>
+      boolean().withDefault(const Constant(true))();
+}
+
 /// Simple key/value store for app settings.
 class Settings extends Table {
   TextColumn get key => text()();
@@ -80,7 +96,7 @@ class Settings extends Table {
   Set<Column<Object>> get primaryKey => {key};
 }
 
-@DriftDatabase(tables: [Sessions, ShotStats, StrokeTrends, Settings])
+@DriftDatabase(tables: [Sessions, ShotStats, StrokeTrends, Settings, Goals])
 class AppDatabase extends _$AppDatabase {
   /// Tests pass `NativeDatabase.memory()`; production uses [AppDatabase.open].
   AppDatabase(super.executor);
@@ -89,13 +105,17 @@ class AppDatabase extends _$AppDatabase {
   factory AppDatabase.open() => AppDatabase(driftDatabase(name: 'rallycoach'));
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onUpgrade: (m, from, to) async {
       if (from < 2) {
         await m.addColumn(sessions, sessions.highlights);
+      }
+      if (from < 3) {
+        await m.createTable(goals);
+        await m.addColumn(sessions, sessions.strokeSequence);
       }
     },
   );

@@ -53,15 +53,29 @@ class SessionConfig {
     required this.coachId,
     this.skillTier,
     this.leftHanded = false,
+    this.strokeSequence = const [],
+    this.goalMetricId,
   });
 
-  /// Stroke id or 'full'.
+  /// Primary stroke id or 'full'. For single-stroke sessions this is the
+  /// only stroke; for multi-stroke sessions it matches [strokeSequence.first].
   final String type;
   final String coachId;
 
   /// Null on the very first session — triggers the 10-shot calibration.
   final String? skillTier;
   final bool leftHanded;
+
+  /// Ordered list of stroke ids for multi-stroke sequencing (max 3). When
+  /// empty, [type] is used as a single-element sequence.
+  final List<String> strokeSequence;
+
+  /// When set, the orchestrator pre-seeds the focus manager with this metric.
+  final String? goalMetricId;
+
+  /// The effective ordered stroke list; never empty.
+  List<String> get effectiveSequence =>
+      strokeSequence.isNotEmpty ? strokeSequence : [type];
 }
 
 class LiveStats {
@@ -108,8 +122,11 @@ class SessionOrchestrator {
     processor = ShotStreamProcessor(
       referenceFor: (stroke) => references.referenceFor(stroke, _tier),
       leftHanded: config.leftHanded,
-      footworkMode: config.type == Stroke.footwork.id,
+      footworkMode: config.effectiveSequence.first == Stroke.footwork.id,
     );
+    if (config.goalMetricId != null) {
+      _focusManager.setFocus(config.goalMetricId!);
+    }
   }
 
   final PoseSource poseSource;
@@ -154,6 +171,11 @@ class SessionOrchestrator {
   DateTime? _startedAt;
   DateTime? _lostSince;
   bool _userPaused = false;
+
+  final _focusManager = SessionFocusManager();
+  int _currentStrokeIndex = 0;
+  int _shotsInCurrentPhase = 0;
+  static const int _strokeBudget = 20;
 
   final List<StreamSubscription<Object?>> _subs = [];
 
@@ -274,7 +296,29 @@ class SessionOrchestrator {
       _setPhase(SessionPhase.live);
     }
 
+    if (config.effectiveSequence.length > 1) {
+      _shotsInCurrentPhase++;
+      if (_shotsInCurrentPhase >= _strokeBudget) {
+        _transitionToNextStroke();
+      }
+    }
+
     _speakForShot(event);
+  }
+
+  void _transitionToNextStroke() {
+    final seq = config.effectiveSequence;
+    if (_currentStrokeIndex >= seq.length - 1) return;
+    _currentStrokeIndex++;
+    _shotsInCurrentPhase = 0;
+    _focusManager.reset();
+    _recentCueTexts.clear();
+    final nextStroke = seq[_currentStrokeIndex];
+    final raw = bank.pick('system:stroke_transition', _rng);
+    coach.submit(
+      raw.replaceAll('{stroke}', nextStroke),
+      CoachUtteranceKind.system,
+    );
   }
 
   void _onFootworkWindow(FootworkEvent event) {
@@ -308,6 +352,9 @@ class SessionOrchestrator {
 
   void _speakForShot(ShotEvent event) {
     final deviations = event.score.deviations;
+    final recurrence = processor.recurrenceCounts();
+    final focusId = _focusManager.update(recurrence);
+
     if (deviations.isEmpty) {
       coach.submit(bank.pick(
           _rng.nextBool() ? 'encourage' : 'ack', _rng),
@@ -317,7 +364,8 @@ class SessionOrchestrator {
     final picked = pickCue(
       deviations,
       coach.suppressedMetricIds(),
-      processor.recurrenceCounts(),
+      recurrence,
+      focusId: focusId,
     );
     if (picked == null) {
       // Everything deviated was cued recently; acknowledge effort instead.
@@ -332,12 +380,14 @@ class SessionOrchestrator {
 
     final b = brain;
     if (b != null && prompts != null && validator != null) {
-      unawaited(_raceBrainCue(event, picked, cueCountAtSubmit));
+      unawaited(_raceBrainCue(event, picked, cueCountAtSubmit,
+          focusId: focusId));
     }
   }
 
   Future<void> _raceBrainCue(
-      ShotEvent event, MetricDeviation picked, int cueCountAtSubmit) async {
+      ShotEvent event, MetricDeviation picked, int cueCountAtSubmit,
+      {String? focusId}) async {
     try {
       if (!await brain!.isAvailable()) return;
       final trend = _scoreTrend();
@@ -346,7 +396,7 @@ class SessionOrchestrator {
         personalityStyle: bank.personality.style,
         skillTier: _tier,
         handedness: config.leftHanded ? 'left' : 'right',
-        sessionType: config.type,
+        sessionType: config.effectiveSequence[_currentStrokeIndex],
         stroke: event.stroke.id,
         score: event.score.score.round(),
         deviations: event.score.deviations.take(3).toList(),
@@ -356,6 +406,8 @@ class SessionOrchestrator {
         recentCues: List.of(_recentCueTexts),
         classificationConf: event.classificationConf,
         viewConfidence: event.viewConfidence,
+        sessionFocus: focusId,
+        goalMetric: config.goalMetricId,
       );
       final sw = Stopwatch()..start();
       final reply = await brain!.generate(prompt,
@@ -445,6 +497,7 @@ class SessionOrchestrator {
       headline: headline,
       encouragement: encouragement,
       highlights: jsonEncode(highlights ?? []),
+      strokeSequence: jsonEncode(config.strokeSequence),
       shots: [
         for (final s in _shots)
           (

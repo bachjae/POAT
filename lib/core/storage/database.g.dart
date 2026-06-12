@@ -175,6 +175,18 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     requiredDuringInsert: false,
     defaultValue: const Constant('[]'),
   );
+  static const VerificationMeta _strokeSequenceMeta = const VerificationMeta(
+    'strokeSequence',
+  );
+  @override
+  late final GeneratedColumn<String> strokeSequence = GeneratedColumn<String>(
+    'stroke_sequence',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -192,6 +204,7 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     headline,
     encouragement,
     highlights,
+    strokeSequence,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -330,6 +343,15 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         ),
       );
     }
+    if (data.containsKey('stroke_sequence')) {
+      context.handle(
+        _strokeSequenceMeta,
+        strokeSequence.isAcceptableOrUnknown(
+          data['stroke_sequence']!,
+          _strokeSequenceMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -399,6 +421,10 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         DriftSqlType.string,
         data['${effectivePrefix}highlights'],
       )!,
+      strokeSequence: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}stroke_sequence'],
+      )!,
     );
   }
 
@@ -436,6 +462,9 @@ class Session extends DataClass implements Insertable<Session> {
 
   /// JSON array of {tOffsetMs, shotIndex} bookmarks from the live screen.
   final String highlights;
+
+  /// JSON array of stroke ids for multi-stroke sequences.
+  final String strokeSequence;
   const Session({
     required this.id,
     required this.startedAt,
@@ -452,6 +481,7 @@ class Session extends DataClass implements Insertable<Session> {
     required this.headline,
     required this.encouragement,
     required this.highlights,
+    required this.strokeSequence,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -471,6 +501,7 @@ class Session extends DataClass implements Insertable<Session> {
     map['headline'] = Variable<String>(headline);
     map['encouragement'] = Variable<String>(encouragement);
     map['highlights'] = Variable<String>(highlights);
+    map['stroke_sequence'] = Variable<String>(strokeSequence);
     return map;
   }
 
@@ -491,6 +522,7 @@ class Session extends DataClass implements Insertable<Session> {
       headline: Value(headline),
       encouragement: Value(encouragement),
       highlights: Value(highlights),
+      strokeSequence: Value(strokeSequence),
     );
   }
 
@@ -515,6 +547,7 @@ class Session extends DataClass implements Insertable<Session> {
       headline: serializer.fromJson<String>(json['headline']),
       encouragement: serializer.fromJson<String>(json['encouragement']),
       highlights: serializer.fromJson<String>(json['highlights']),
+      strokeSequence: serializer.fromJson<String>(json['strokeSequence']),
     );
   }
   @override
@@ -536,6 +569,7 @@ class Session extends DataClass implements Insertable<Session> {
       'headline': serializer.toJson<String>(headline),
       'encouragement': serializer.toJson<String>(encouragement),
       'highlights': serializer.toJson<String>(highlights),
+      'strokeSequence': serializer.toJson<String>(strokeSequence),
     };
   }
 
@@ -555,6 +589,7 @@ class Session extends DataClass implements Insertable<Session> {
     String? headline,
     String? encouragement,
     String? highlights,
+    String? strokeSequence,
   }) => Session(
     id: id ?? this.id,
     startedAt: startedAt ?? this.startedAt,
@@ -571,6 +606,7 @@ class Session extends DataClass implements Insertable<Session> {
     headline: headline ?? this.headline,
     encouragement: encouragement ?? this.encouragement,
     highlights: highlights ?? this.highlights,
+    strokeSequence: strokeSequence ?? this.strokeSequence,
   );
   Session copyWithCompanion(SessionsCompanion data) {
     return Session(
@@ -603,6 +639,9 @@ class Session extends DataClass implements Insertable<Session> {
       highlights: data.highlights.present
           ? data.highlights.value
           : this.highlights,
+      strokeSequence: data.strokeSequence.present
+          ? data.strokeSequence.value
+          : this.strokeSequence,
     );
   }
 
@@ -623,7 +662,8 @@ class Session extends DataClass implements Insertable<Session> {
           ..write('chatHistory: $chatHistory, ')
           ..write('headline: $headline, ')
           ..write('encouragement: $encouragement, ')
-          ..write('highlights: $highlights')
+          ..write('highlights: $highlights, ')
+          ..write('strokeSequence: $strokeSequence')
           ..write(')'))
         .toString();
   }
@@ -645,6 +685,7 @@ class Session extends DataClass implements Insertable<Session> {
     headline,
     encouragement,
     highlights,
+    strokeSequence,
   );
   @override
   bool operator ==(Object other) =>
@@ -664,7 +705,8 @@ class Session extends DataClass implements Insertable<Session> {
           other.chatHistory == this.chatHistory &&
           other.headline == this.headline &&
           other.encouragement == this.encouragement &&
-          other.highlights == this.highlights);
+          other.highlights == this.highlights &&
+          other.strokeSequence == this.strokeSequence);
 }
 
 class SessionsCompanion extends UpdateCompanion<Session> {
@@ -683,6 +725,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
   final Value<String> headline;
   final Value<String> encouragement;
   final Value<String> highlights;
+  final Value<String> strokeSequence;
   const SessionsCompanion({
     this.id = const Value.absent(),
     this.startedAt = const Value.absent(),
@@ -699,6 +742,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.headline = const Value.absent(),
     this.encouragement = const Value.absent(),
     this.highlights = const Value.absent(),
+    this.strokeSequence = const Value.absent(),
   });
   SessionsCompanion.insert({
     this.id = const Value.absent(),
@@ -716,6 +760,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.headline = const Value.absent(),
     this.encouragement = const Value.absent(),
     this.highlights = const Value.absent(),
+    this.strokeSequence = const Value.absent(),
   }) : startedAt = Value(startedAt),
        durationS = Value(durationS),
        type = Value(type),
@@ -742,6 +787,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Expression<String>? headline,
     Expression<String>? encouragement,
     Expression<String>? highlights,
+    Expression<String>? strokeSequence,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -759,6 +805,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
       if (headline != null) 'headline': headline,
       if (encouragement != null) 'encouragement': encouragement,
       if (highlights != null) 'highlights': highlights,
+      if (strokeSequence != null) 'stroke_sequence': strokeSequence,
     });
   }
 
@@ -778,6 +825,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Value<String>? headline,
     Value<String>? encouragement,
     Value<String>? highlights,
+    Value<String>? strokeSequence,
   }) {
     return SessionsCompanion(
       id: id ?? this.id,
@@ -795,6 +843,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
       headline: headline ?? this.headline,
       encouragement: encouragement ?? this.encouragement,
       highlights: highlights ?? this.highlights,
+      strokeSequence: strokeSequence ?? this.strokeSequence,
     );
   }
 
@@ -846,6 +895,9 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     if (highlights.present) {
       map['highlights'] = Variable<String>(highlights.value);
     }
+    if (strokeSequence.present) {
+      map['stroke_sequence'] = Variable<String>(strokeSequence.value);
+    }
     return map;
   }
 
@@ -866,7 +918,8 @@ class SessionsCompanion extends UpdateCompanion<Session> {
           ..write('chatHistory: $chatHistory, ')
           ..write('headline: $headline, ')
           ..write('encouragement: $encouragement, ')
-          ..write('highlights: $highlights')
+          ..write('highlights: $highlights, ')
+          ..write('strokeSequence: $strokeSequence')
           ..write(')'))
         .toString();
   }
@@ -1874,6 +1927,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ShotStatsTable shotStats = $ShotStatsTable(this);
   late final $StrokeTrendsTable strokeTrends = $StrokeTrendsTable(this);
   late final $SettingsTable settings = $SettingsTable(this);
+  late final $GoalsTable goals = $GoalsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1883,6 +1937,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     shotStats,
     strokeTrends,
     settings,
+    goals,
   ];
 }
 
@@ -3030,6 +3085,351 @@ typedef $$SettingsTableProcessedTableManager =
       Setting,
       PrefetchHooks Function()
     >;
+
+class $GoalsTable extends Goals with TableInfo<$GoalsTable, Goal> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $GoalsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _metricIdMeta =
+      const VerificationMeta('metricId');
+  @override
+  late final GeneratedColumn<String> metricId = GeneratedColumn<String>(
+    'metric_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _strokeMeta =
+      const VerificationMeta('stroke');
+  @override
+  late final GeneratedColumn<String> stroke = GeneratedColumn<String>(
+    'stroke',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _targetRateMeta =
+      const VerificationMeta('targetRate');
+  @override
+  late final GeneratedColumn<double> targetRate = GeneratedColumn<double>(
+    'target_rate',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _activeMeta =
+      const VerificationMeta('active');
+  @override
+  late final GeneratedColumn<bool> active = GeneratedColumn<bool>(
+    'active',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("active" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    metricId,
+    stroke,
+    targetRate,
+    createdAt,
+    active,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'goals';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Goal> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('metric_id')) {
+      context.handle(
+        _metricIdMeta,
+        metricId.isAcceptableOrUnknown(data['metric_id']!, _metricIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_metricIdMeta);
+    }
+    if (data.containsKey('stroke')) {
+      context.handle(
+        _strokeMeta,
+        stroke.isAcceptableOrUnknown(data['stroke']!, _strokeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_strokeMeta);
+    }
+    if (data.containsKey('target_rate')) {
+      context.handle(
+        _targetRateMeta,
+        targetRate.isAcceptableOrUnknown(data['target_rate']!, _targetRateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_targetRateMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('active')) {
+      context.handle(
+        _activeMeta,
+        active.isAcceptableOrUnknown(data['active']!, _activeMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Goal map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Goal(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      metricId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}metric_id'])!,
+      stroke: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}stroke'])!,
+      targetRate: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}target_rate'])!,
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+      active: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}active'])!,
+    );
+  }
+
+  @override
+  $GoalsTable createAlias(String alias) => $GoalsTable(attachedDatabase, alias);
+}
+
+class Goal extends DataClass implements Insertable<Goal> {
+  final int id;
+  final String metricId;
+  final String stroke;
+  final double targetRate;
+  final DateTime createdAt;
+  final bool active;
+  const Goal({
+    required this.id,
+    required this.metricId,
+    required this.stroke,
+    required this.targetRate,
+    required this.createdAt,
+    required this.active,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['metric_id'] = Variable<String>(metricId);
+    map['stroke'] = Variable<String>(stroke);
+    map['target_rate'] = Variable<double>(targetRate);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['active'] = Variable<bool>(active);
+    return map;
+  }
+
+  GoalsCompanion toCompanion(bool nullToAbsent) {
+    return GoalsCompanion(
+      id: Value(id),
+      metricId: Value(metricId),
+      stroke: Value(stroke),
+      targetRate: Value(targetRate),
+      createdAt: Value(createdAt),
+      active: Value(active),
+    );
+  }
+
+  factory Goal.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Goal(
+      id: serializer.fromJson<int>(json['id']),
+      metricId: serializer.fromJson<String>(json['metricId']),
+      stroke: serializer.fromJson<String>(json['stroke']),
+      targetRate: serializer.fromJson<double>(json['targetRate']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      active: serializer.fromJson<bool>(json['active']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'metricId': serializer.toJson<String>(metricId),
+      'stroke': serializer.toJson<String>(stroke),
+      'targetRate': serializer.toJson<double>(targetRate),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'active': serializer.toJson<bool>(active),
+    };
+  }
+
+  Goal copyWith({
+    int? id,
+    String? metricId,
+    String? stroke,
+    double? targetRate,
+    DateTime? createdAt,
+    bool? active,
+  }) => Goal(
+    id: id ?? this.id,
+    metricId: metricId ?? this.metricId,
+    stroke: stroke ?? this.stroke,
+    targetRate: targetRate ?? this.targetRate,
+    createdAt: createdAt ?? this.createdAt,
+    active: active ?? this.active,
+  );
+
+  @override
+  String toString() {
+    return (StringBuffer('Goal(')
+          ..write('id: $id, ')
+          ..write('metricId: $metricId, ')
+          ..write('stroke: $stroke, ')
+          ..write('targetRate: $targetRate, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('active: $active')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, metricId, stroke, targetRate, createdAt, active);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Goal &&
+          other.id == this.id &&
+          other.metricId == this.metricId &&
+          other.stroke == this.stroke &&
+          other.targetRate == this.targetRate &&
+          other.createdAt == this.createdAt &&
+          other.active == this.active);
+}
+
+class GoalsCompanion extends UpdateCompanion<Goal> {
+  final Value<int> id;
+  final Value<String> metricId;
+  final Value<String> stroke;
+  final Value<double> targetRate;
+  final Value<DateTime> createdAt;
+  final Value<bool> active;
+  const GoalsCompanion({
+    this.id = const Value.absent(),
+    this.metricId = const Value.absent(),
+    this.stroke = const Value.absent(),
+    this.targetRate = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.active = const Value.absent(),
+  });
+  GoalsCompanion.insert({
+    this.id = const Value.absent(),
+    required String metricId,
+    required String stroke,
+    required double targetRate,
+    required DateTime createdAt,
+    this.active = const Value.absent(),
+  }) : metricId = Value(metricId),
+       stroke = Value(stroke),
+       targetRate = Value(targetRate),
+       createdAt = Value(createdAt);
+
+  GoalsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? metricId,
+    Value<String>? stroke,
+    Value<double>? targetRate,
+    Value<DateTime>? createdAt,
+    Value<bool>? active,
+  }) {
+    return GoalsCompanion(
+      id: id ?? this.id,
+      metricId: metricId ?? this.metricId,
+      stroke: stroke ?? this.stroke,
+      targetRate: targetRate ?? this.targetRate,
+      createdAt: createdAt ?? this.createdAt,
+      active: active ?? this.active,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) map['id'] = Variable<int>(id.value);
+    if (metricId.present) map['metric_id'] = Variable<String>(metricId.value);
+    if (stroke.present) map['stroke'] = Variable<String>(stroke.value);
+    if (targetRate.present)
+      map['target_rate'] = Variable<double>(targetRate.value);
+    if (createdAt.present)
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    if (active.present) map['active'] = Variable<bool>(active.value);
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('GoalsCompanion(')
+          ..write('id: $id, ')
+          ..write('metricId: $metricId, ')
+          ..write('stroke: $stroke, ')
+          ..write('targetRate: $targetRate, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('active: $active')
+          ..write(')'))
+        .toString();
+  }
+}
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
