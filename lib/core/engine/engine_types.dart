@@ -142,12 +142,17 @@ class ShotPhases {
     required this.backswing,
     required this.contact,
     required this.followEnd,
+    this.tossFrame,
   });
 
   final int prep;
   final int backswing;
   final int contact;
   final int followEnd;
+
+  /// Serve only: buffer index where the tossing arm reaches maximum height
+  /// relative to the racket arm (bimanual wrist divergence peak).
+  final int? tossFrame;
 }
 
 class MetricDeviation {

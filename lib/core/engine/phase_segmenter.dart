@@ -91,5 +91,37 @@ ShotPhases segmentPhases(
       break;
     }
   }
-  return ShotPhases(prep: prep, backswing: bw, contact: p, followEnd: followEnd);
+  // Serve: find the toss frame — the buffer index where the tossing arm
+  // (left wrist) is highest relative to the racket arm (right wrist).
+  // Scanned from shot start to the trophy position.
+  int? tossFrame;
+  if (stroke == Stroke.serve) {
+    var trophyI = s;
+    for (var i = s; i <= p; i++) {
+      final kp = frames[i].keypoints;
+      final shoMidY =
+          (kp[Kp.leftShoulder][1] + kp[Kp.rightShoulder][1]) / 2.0;
+      if (kp[Kp.rightWrist][1] >= shoMidY) {
+        trophyI = i;
+        break;
+      }
+    }
+    var maxDiv = double.negativeInfinity;
+    for (var i = s; i <= trophyI; i++) {
+      final kp = frames[i].keypoints;
+      final div = kp[Kp.leftWrist][1] - kp[Kp.rightWrist][1];
+      if (div > maxDiv) {
+        maxDiv = div;
+        tossFrame = i;
+      }
+    }
+  }
+
+  return ShotPhases(
+    prep: prep,
+    backswing: bw,
+    contact: p,
+    followEnd: followEnd,
+    tossFrame: tossFrame,
+  );
 }

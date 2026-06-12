@@ -80,6 +80,8 @@ class _Body extends StatelessWidget {
     final improve = (jsonDecode(session.summaryImprove) as List)
         .cast<Map<String, dynamic>>();
     final drillIds = (jsonDecode(session.drills) as List).cast<String>();
+    final highlights = (jsonDecode(session.highlights) as List)
+        .cast<Map<String, dynamic>>();
     final drills = catalog == null
         ? const <Drill>[]
         : [
@@ -187,6 +189,21 @@ class _Body extends StatelessWidget {
                 ),
               ),
             ),
+          if (highlights.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            const Hairline(),
+            const SizedBox(height: 16),
+            const Text('HIGHLIGHTS', style: RcType.heading),
+            const SizedBox(height: 8),
+            for (final h in highlights)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  '· Shot ${h['shotIndex']} at ${_formatOffset(h['tOffsetMs'] as int)}',
+                  style: RcType.body,
+                ),
+              ),
+          ],
           const SizedBox(height: 16),
           RcOutlineButton(
             label: '💬 Ask your coach',
@@ -215,6 +232,13 @@ class _Body extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatOffset(int ms) {
+  final s = ms ~/ 1000;
+  final mm = (s ~/ 60).toString().padLeft(2, '0');
+  final ss = (s % 60).toString().padLeft(2, '0');
+  return '$mm:$ss';
 }
 
 /// Score counts up over 400ms (DESIGN motion rules); instant when the

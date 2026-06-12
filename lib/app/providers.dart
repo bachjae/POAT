@@ -60,12 +60,17 @@ final brainStatusProvider = FutureProvider<BrainStatus>((ref) async {
 });
 
 /// Null in Lite mode (model absent / RAM gate / not yet prepared).
+/// Prefers the imported Pro model when available.
 final llmRunnerProvider = FutureProvider<LlmRunner?>((ref) async {
   final manager = await ref.watch(modelManagerProvider.future);
-  if (await manager.status != BrainStatus.ready || manager.liteOnly) {
-    return null;
-  }
-  final runner = GemmaLlmRunner(modelManager: manager);
+  final proReady = (await manager.proStatus) == BrainStatus.ready;
+  final bundledReady =
+      (await manager.status) == BrainStatus.ready && !manager.liteOnly;
+  if (!proReady && !bundledReady) return null;
+  final runner = GemmaLlmRunner(
+    modelManager: manager,
+    modelPathOverride: proReady ? manager.proModelFilePath : null,
+  );
   ref.onDispose(runner.dispose);
   return runner;
 });

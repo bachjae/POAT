@@ -163,6 +163,18 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     requiredDuringInsert: false,
     defaultValue: const Constant(''),
   );
+  static const VerificationMeta _highlightsMeta = const VerificationMeta(
+    'highlights',
+  );
+  @override
+  late final GeneratedColumn<String> highlights = GeneratedColumn<String>(
+    'highlights',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -179,6 +191,7 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     chatHistory,
     headline,
     encouragement,
+    highlights,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -308,6 +321,15 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         ),
       );
     }
+    if (data.containsKey('highlights')) {
+      context.handle(
+        _highlightsMeta,
+        highlights.isAcceptableOrUnknown(
+          data['highlights']!,
+          _highlightsMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -373,6 +395,10 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         DriftSqlType.string,
         data['${effectivePrefix}encouragement'],
       )!,
+      highlights: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}highlights'],
+      )!,
     );
   }
 
@@ -407,6 +433,9 @@ class Session extends DataClass implements Insertable<Session> {
   final String chatHistory;
   final String headline;
   final String encouragement;
+
+  /// JSON array of {tOffsetMs, shotIndex} bookmarks from the live screen.
+  final String highlights;
   const Session({
     required this.id,
     required this.startedAt,
@@ -422,6 +451,7 @@ class Session extends DataClass implements Insertable<Session> {
     required this.chatHistory,
     required this.headline,
     required this.encouragement,
+    required this.highlights,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -440,6 +470,7 @@ class Session extends DataClass implements Insertable<Session> {
     map['chat_history'] = Variable<String>(chatHistory);
     map['headline'] = Variable<String>(headline);
     map['encouragement'] = Variable<String>(encouragement);
+    map['highlights'] = Variable<String>(highlights);
     return map;
   }
 
@@ -459,6 +490,7 @@ class Session extends DataClass implements Insertable<Session> {
       chatHistory: Value(chatHistory),
       headline: Value(headline),
       encouragement: Value(encouragement),
+      highlights: Value(highlights),
     );
   }
 
@@ -482,6 +514,7 @@ class Session extends DataClass implements Insertable<Session> {
       chatHistory: serializer.fromJson<String>(json['chatHistory']),
       headline: serializer.fromJson<String>(json['headline']),
       encouragement: serializer.fromJson<String>(json['encouragement']),
+      highlights: serializer.fromJson<String>(json['highlights']),
     );
   }
   @override
@@ -502,6 +535,7 @@ class Session extends DataClass implements Insertable<Session> {
       'chatHistory': serializer.toJson<String>(chatHistory),
       'headline': serializer.toJson<String>(headline),
       'encouragement': serializer.toJson<String>(encouragement),
+      'highlights': serializer.toJson<String>(highlights),
     };
   }
 
@@ -520,6 +554,7 @@ class Session extends DataClass implements Insertable<Session> {
     String? chatHistory,
     String? headline,
     String? encouragement,
+    String? highlights,
   }) => Session(
     id: id ?? this.id,
     startedAt: startedAt ?? this.startedAt,
@@ -535,6 +570,7 @@ class Session extends DataClass implements Insertable<Session> {
     chatHistory: chatHistory ?? this.chatHistory,
     headline: headline ?? this.headline,
     encouragement: encouragement ?? this.encouragement,
+    highlights: highlights ?? this.highlights,
   );
   Session copyWithCompanion(SessionsCompanion data) {
     return Session(
@@ -564,6 +600,9 @@ class Session extends DataClass implements Insertable<Session> {
       encouragement: data.encouragement.present
           ? data.encouragement.value
           : this.encouragement,
+      highlights: data.highlights.present
+          ? data.highlights.value
+          : this.highlights,
     );
   }
 
@@ -583,7 +622,8 @@ class Session extends DataClass implements Insertable<Session> {
           ..write('drills: $drills, ')
           ..write('chatHistory: $chatHistory, ')
           ..write('headline: $headline, ')
-          ..write('encouragement: $encouragement')
+          ..write('encouragement: $encouragement, ')
+          ..write('highlights: $highlights')
           ..write(')'))
         .toString();
   }
@@ -604,6 +644,7 @@ class Session extends DataClass implements Insertable<Session> {
     chatHistory,
     headline,
     encouragement,
+    highlights,
   );
   @override
   bool operator ==(Object other) =>
@@ -622,7 +663,8 @@ class Session extends DataClass implements Insertable<Session> {
           other.drills == this.drills &&
           other.chatHistory == this.chatHistory &&
           other.headline == this.headline &&
-          other.encouragement == this.encouragement);
+          other.encouragement == this.encouragement &&
+          other.highlights == this.highlights);
 }
 
 class SessionsCompanion extends UpdateCompanion<Session> {
@@ -640,6 +682,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
   final Value<String> chatHistory;
   final Value<String> headline;
   final Value<String> encouragement;
+  final Value<String> highlights;
   const SessionsCompanion({
     this.id = const Value.absent(),
     this.startedAt = const Value.absent(),
@@ -655,6 +698,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.chatHistory = const Value.absent(),
     this.headline = const Value.absent(),
     this.encouragement = const Value.absent(),
+    this.highlights = const Value.absent(),
   });
   SessionsCompanion.insert({
     this.id = const Value.absent(),
@@ -671,6 +715,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.chatHistory = const Value.absent(),
     this.headline = const Value.absent(),
     this.encouragement = const Value.absent(),
+    this.highlights = const Value.absent(),
   }) : startedAt = Value(startedAt),
        durationS = Value(durationS),
        type = Value(type),
@@ -696,6 +741,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Expression<String>? chatHistory,
     Expression<String>? headline,
     Expression<String>? encouragement,
+    Expression<String>? highlights,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -712,6 +758,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
       if (chatHistory != null) 'chat_history': chatHistory,
       if (headline != null) 'headline': headline,
       if (encouragement != null) 'encouragement': encouragement,
+      if (highlights != null) 'highlights': highlights,
     });
   }
 
@@ -730,6 +777,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Value<String>? chatHistory,
     Value<String>? headline,
     Value<String>? encouragement,
+    Value<String>? highlights,
   }) {
     return SessionsCompanion(
       id: id ?? this.id,
@@ -746,6 +794,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
       chatHistory: chatHistory ?? this.chatHistory,
       headline: headline ?? this.headline,
       encouragement: encouragement ?? this.encouragement,
+      highlights: highlights ?? this.highlights,
     );
   }
 
@@ -794,6 +843,9 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     if (encouragement.present) {
       map['encouragement'] = Variable<String>(encouragement.value);
     }
+    if (highlights.present) {
+      map['highlights'] = Variable<String>(highlights.value);
+    }
     return map;
   }
 
@@ -813,7 +865,8 @@ class SessionsCompanion extends UpdateCompanion<Session> {
           ..write('drills: $drills, ')
           ..write('chatHistory: $chatHistory, ')
           ..write('headline: $headline, ')
-          ..write('encouragement: $encouragement')
+          ..write('encouragement: $encouragement, ')
+          ..write('highlights: $highlights')
           ..write(')'))
         .toString();
   }

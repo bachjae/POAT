@@ -46,7 +46,7 @@ void main() {
     expect(prompt, contains('elbow_angle'));
     expect(prompt, contains('recurring: 7 of last 10'));
     expect(prompt, contains('-4.0'));
-    expect(prompt, contains('max 12 words'));
+    expect(prompt, contains('max 15 words'));
   });
 
   test('session summary prompt renders fully', () {

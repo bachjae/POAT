@@ -263,7 +263,7 @@ class ShotStreamProcessor {
       if (shot.peak + _postWindowFrames > _buffer.length - 1) continue;
       _lastEmittedPeakTs = peakTs;
 
-      final (stroke, classificationConf) = classifyShot(_buffer, shot);
+      final (stroke, classificationConf) = classifyShot(_buffer, shot, majorityView: majorityView);
       final reference = referenceFor(stroke);
       final phases = segmentPhases(_buffer, shot, stroke);
       final address = jointAngles(_buffer[shot.start].keypoints);

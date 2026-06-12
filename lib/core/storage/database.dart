@@ -37,6 +37,9 @@ class Sessions extends Table {
   TextColumn get chatHistory => text().withDefault(const Constant('[]'))();
   TextColumn get headline => text().withDefault(const Constant(''))();
   TextColumn get encouragement => text().withDefault(const Constant(''))();
+
+  /// JSON array of {tOffsetMs, shotIndex} bookmarks from the live screen.
+  TextColumn get highlights => text().withDefault(const Constant('[]'))();
 }
 
 /// One scored shot within a session.
@@ -86,5 +89,14 @@ class AppDatabase extends _$AppDatabase {
   factory AppDatabase.open() => AppDatabase(driftDatabase(name: 'rallycoach'));
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.addColumn(sessions, sessions.highlights);
+      }
+    },
+  );
 }

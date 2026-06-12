@@ -32,6 +32,11 @@ final _trendProvider = FutureProvider.family<
     List<({DateTime weekStart, double avgScore})>,
     String>((ref, stroke) => ref.watch(repositoryProvider).trendFor(stroke));
 
+final _metricTrendProvider = FutureProvider.family<
+    List<({String deviationId, double frequency})>,
+    String>((ref, stroke) =>
+    ref.watch(repositoryProvider).metricTrendFor(stroke));
+
 final _sessionsProvider = StreamProvider<List<Session>>(
     (ref) => ref.watch(repositoryProvider).watchRecentSessions(limit: 50));
 
@@ -42,6 +47,7 @@ class ProgressScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final stroke = ref.watch(_strokeFilterProvider);
     final trend = ref.watch(_trendProvider(stroke));
+    final metricTrend = ref.watch(_metricTrendProvider(stroke));
     final sessions = ref.watch(_sessionsProvider);
 
     return Scaffold(
@@ -84,6 +90,18 @@ class ProgressScreen extends ConsumerWidget {
                               style: RcType.bodyDim))
                       : _TrendChart(points: points),
                 ),
+              ),
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 12),
+              const Text('METRIC TRENDS', style: RcType.caption),
+              const SizedBox(height: 8),
+              metricTrend.when(
+                loading: () => const SizedBox.shrink(),
+                error: (_, _) => const SizedBox.shrink(),
+                data: (items) => items.isEmpty
+                    ? const SizedBox.shrink()
+                    : _MetricTrendBars(items: items),
               ),
               const SizedBox(height: 16),
               const Divider(),
@@ -208,6 +226,68 @@ class _TrendChart extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Horizontal bar chart showing top deviation frequencies for the selected
+/// stroke. Bars are colored by severity:
+/// ≥ 0.4 → persistent weakness (clay), < 0.15 → rarely an issue (ball).
+class _MetricTrendBars extends StatelessWidget {
+  const _MetricTrendBars({required this.items});
+
+  final List<({String deviationId, double frequency})> items;
+
+  Color _barColor(double freq) {
+    if (freq >= 0.4) return RcColors.clay;
+    if (freq <= 0.15) return RcColors.ball;
+    return RcColors.net;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (final item in items.take(6))
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 140,
+                  child: Text(
+                    item.deviationId.replaceAll('_', ' '),
+                    style: RcType.stat.copyWith(
+                        fontSize: 11, color: RcColors.lineDim),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: LinearProgressIndicator(
+                      value: item.frequency.clamp(0.0, 1.0),
+                      backgroundColor: RcColors.net.withValues(alpha: 0.3),
+                      color: _barColor(item.frequency),
+                      minHeight: 8,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 36,
+                  child: Text(
+                    '${(item.frequency * 100).round()}%',
+                    style: RcType.stat.copyWith(
+                        fontSize: 11, color: RcColors.lineDim),
+                    textAlign: TextAlign.end,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

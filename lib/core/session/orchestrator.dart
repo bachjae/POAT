@@ -29,6 +29,24 @@ import 'summary_generator.dart';
 
 enum SessionPhase { idle, setup, calibrating, live, paused, ending, summary }
 
+/// Exponential moving average for the LLM generation deadline.
+/// Clamps between 2s and 7s; records each success and pushes toward 7s on
+/// timeout so the next shot isn't starved waiting on a slow model.
+class _AdaptiveDeadline {
+  _AdaptiveDeadline([double initialMs = 4000]) : _current = initialMs;
+  double _current;
+
+  Duration get value => Duration(milliseconds: _current.round());
+
+  void recordSuccess(int observedMs) {
+    _current = (_current * 0.7 + observedMs * 0.3).clamp(2000.0, 7000.0);
+  }
+
+  void onTimeout() {
+    _current = (_current * 0.7 + 7000.0 * 0.3).clamp(2000.0, 7000.0);
+  }
+}
+
 class SessionConfig {
   const SessionConfig({
     required this.type,
@@ -84,6 +102,7 @@ class SessionOrchestrator {
     math.Random? rng,
   })  : _clock = clock ?? DateTime.now,
         _rng = rng ?? math.Random() {
+    _deadline = _AdaptiveDeadline(brainDeadline.inMilliseconds.toDouble());
     _tier = config.skillTier ?? 'intermediate';
     _calibrating = config.skillTier == null;
     processor = ShotStreamProcessor(
@@ -105,7 +124,8 @@ class SessionOrchestrator {
   final LlmRunner? brain;
   final PromptBuilder? prompts;
   final CueValidator? validator;
-  final Duration brainDeadline;
+  final Duration brainDeadline; // initial value; runtime uses _deadline
+  late final _AdaptiveDeadline _deadline;
 
   late final ShotStreamProcessor processor;
   final DateTime Function() _clock;
@@ -334,9 +354,13 @@ class SessionOrchestrator {
         shotNumber: _shots.length,
         trend: trend,
         recentCues: List.of(_recentCueTexts),
+        classificationConf: event.classificationConf,
+        viewConfidence: event.viewConfidence,
       );
+      final sw = Stopwatch()..start();
       final reply = await brain!.generate(prompt,
-          maxTokens: 60, deadline: brainDeadline);
+          maxTokens: 60, deadline: _deadline.value);
+      _deadline.recordSuccess(sw.elapsedMilliseconds);
       final verdict = validator!.validate(
         reply,
         deviatedMetricIds: {for (final d in event.score.deviations) d.id},
@@ -350,6 +374,7 @@ class SessionOrchestrator {
           metricId: picked.id);
       _rememberCue(verdict.acceptedCue);
     } on TimeoutException {
+      _deadline.onTimeout();
       // Rule cue already queued — deadline elapsed, nothing to do.
     } catch (_) {
       // Brain errors never disturb the session.
@@ -371,7 +396,8 @@ class SessionOrchestrator {
   }
 
   /// Ends the session: flush, summarize, persist. Returns the stored id.
-  Future<SessionResult> end() async {
+  /// [highlights] is the list of bookmarked moments from the live screen.
+  Future<SessionResult> end({List<Map<String, dynamic>>? highlights}) async {
     _setPhase(SessionPhase.ending);
     coach.submit(
         bank.pick('system:session_end', _rng), CoachUtteranceKind.system);
@@ -418,6 +444,7 @@ class SessionOrchestrator {
       drills: jsonEncode(summary.drillIds),
       headline: headline,
       encouragement: encouragement,
+      highlights: jsonEncode(highlights ?? []),
       shots: [
         for (final s in _shots)
           (

@@ -82,7 +82,7 @@ Map<String, Map<String, double>> measureMetrics(
   final prepMs = frames[phases.contact].timestampMs -
       frames[phases.prep].timestampMs;
 
-  return {
+  final result = <String, Map<String, double>>{
     'preparation': {
       'shoulder_turn': turn(prepA),
       'knee_flexion': prepA.kneeFlexion,
@@ -105,6 +105,17 @@ Map<String, Map<String, double>> measureMetrics(
     },
     'timing': {'prep_before_contact_ms': prepMs.toDouble()},
   };
+
+  // Serve toss metrics: measured at the bimanual divergence peak frame.
+  if (phases.tossFrame != null) {
+    final tf = phases.tossFrame!;
+    final leftWristY = frames[tf].keypoints[Kp.leftWrist][1];
+    final rightWristY = frames[tf].keypoints[Kp.rightWrist][1];
+    result['preparation']!['toss_height'] = leftWristY;
+    result['preparation']!['wrist_divergence'] = leftWristY - rightWristY;
+  }
+
+  return result;
 }
 
 /// 100 inside [lo, hi]; linear falloff to 0 at `tolerance` beyond the edge

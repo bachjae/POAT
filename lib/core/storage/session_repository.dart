@@ -4,6 +4,8 @@
 /// upserted on every session insert so reads stay O(weeks), not O(shots).
 library;
 
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 
 import 'database.dart';
@@ -39,6 +41,7 @@ class SessionRepository {
     String chatHistory = '[]',
     String headline = '',
     String encouragement = '',
+    String highlights = '[]',
   }) {
     return db.transaction(() async {
       final sessionId = await db.into(db.sessions).insert(
@@ -56,6 +59,7 @@ class SessionRepository {
               chatHistory: Value(chatHistory),
               headline: Value(headline),
               encouragement: Value(encouragement),
+              highlights: Value(highlights),
             ),
           );
 
@@ -183,6 +187,67 @@ class SessionRepository {
       db.into(db.settings).insertOnConflictUpdate(
             SettingsCompanion.insert(key: key, value: value),
           );
+
+  /// Top deviation frequencies across all shots of [stroke].
+  /// Returns up to [limit] entries sorted by frequency descending.
+  Future<List<({String deviationId, double frequency})>> metricTrendFor(
+      String stroke, {
+      int limit = 8}) async {
+    final allShots = await (db.select(db.shotStats)
+          ..where((s) => s.stroke.equals(stroke)))
+        .get();
+    if (allShots.isEmpty) return [];
+    final counts = <String, int>{};
+    for (final r in allShots) {
+      if (r.topDeviationId != null) {
+        counts[r.topDeviationId!] = (counts[r.topDeviationId!] ?? 0) + 1;
+      }
+    }
+    final total = allShots.length;
+    final sorted = counts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return [
+      for (final e in sorted.take(limit))
+        (deviationId: e.key, frequency: e.value / total),
+    ];
+  }
+
+  /// Serializes recent sessions to CSV (no keypoint/video data).
+  Future<String> exportSessionsCsv({int limit = 100}) async {
+    final sessions = await (db.select(db.sessions)
+          ..orderBy([(s) => OrderingTerm.desc(s.startedAt)])
+          ..limit(limit))
+        .get();
+    final buf = StringBuffer();
+    buf.writeln(
+        'date,type,score,shots,duration_min,strength_1,improvement_1,improvement_2');
+    for (final s in sessions) {
+      final good =
+          (jsonDecode(s.summaryGood) as List).cast<String>();
+      final improve =
+          (jsonDecode(s.summaryImprove) as List).cast<Map<String, dynamic>>();
+      final d = s.startedAt;
+      final date =
+          '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      final s1 = good.isNotEmpty ? _csvEsc(good[0]) : '';
+      final i1 = improve.isNotEmpty
+          ? _csvEsc(improve[0]['title'] as String? ?? '')
+          : '';
+      final i2 = improve.length > 1
+          ? _csvEsc(improve[1]['title'] as String? ?? '')
+          : '';
+      buf.writeln(
+          '$date,${s.type},${s.overallScore.round()},${s.shotsTotal},${s.durationS ~/ 60},$s1,$i1,$i2');
+    }
+    return buf.toString();
+  }
+
+  static String _csvEsc(String s) {
+    if (s.contains(',') || s.contains('"') || s.contains('\n')) {
+      return '"${s.replaceAll('"', '""')}"';
+    }
+    return s;
+  }
 
   /// Wipes every table. Irreversible; gated behind a confirm dialog in UI.
   Future<void> deleteAllData() => db.transaction(() async {
