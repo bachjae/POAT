@@ -142,7 +142,7 @@ Future<void> _workerMain(List<Object> init) async {
 
   // Create the interpreter in THIS isolate's OS thread so XNNPACK is
   // initialised here and all invoke() calls stay on the same thread.
-  final Interpreter interpreter;
+  late Interpreter interpreter;
   try {
     try {
       interpreter = Interpreter.fromBuffer(
@@ -236,3 +236,4 @@ Future<void> _workerMain(List<Object> init) async {
   interpreter.close();
   commands.close();
 }
+
