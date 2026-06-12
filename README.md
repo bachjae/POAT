@@ -74,6 +74,9 @@ assets/reference/   per-stroke/tier ideal ranges (literature-derived)
 
 ## Building
 
+First-time Android toolchain setup (Flutter/JDK/SDK/NDK versions + wireless
+ADB) is documented in [`docs/DEV_SETUP.md`](docs/DEV_SETUP.md).
+
 ```bash
 tool/fetch_models.sh           # MoveNet (public, ~18 MB, committed)
 tool/fetch_models.sh --gemma   # + Gemma 4 E2B (~2.6 GB, ungated HF,
@@ -125,6 +128,12 @@ python3 build_phrase_banks.py
   latest pub versions; `android/gradle.properties` documents the migration
   steps to take as soon as Built-in-Kotlin releases of those plugins land.
 
+- **16 KB page alignment**: the APK uses modern page-aligned packaging
+  (`useLegacyPackaging = false`), so everything we build plus most bundled
+  libs are 16 KB-aligned. Five prebuilt vendor binaries inside `flutter_gemma`
+  (`libqdrant_edge_ffi.so`, `libQnnHtpV{73,75,79,81}Skel.so`) are still
+  4 KB-aligned and can only be fixed upstream; they don't affect current
+  devices (16 KB pages are opt-in on Android 15).
 - Reference ranges are encoded from published coaching literature and
   validated on synthetic kinematic fixtures; tuning against real labeled
   footage (the original M1 plan) is the next data milestone.

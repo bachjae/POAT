@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../app/providers.dart';
@@ -42,6 +43,15 @@ class _CameraSetupScreenState extends ConsumerState<CameraSetupScreen> {
   }
 
   Future<void> _start() async {
+    final status = await Permission.camera.request();
+    if (!status.isGranted) {
+      if (mounted) {
+        setState(() => _error = status.isPermanentlyDenied
+            ? 'Camera permission denied.\nGo to Settings → Apps → RallyCoach → Permissions and enable Camera.'
+            : 'Camera permission is required to coach your technique.');
+      }
+      return;
+    }
     try {
       final session =
           await ref.read(activeSessionProvider.notifier).start();
@@ -68,6 +78,9 @@ class _CameraSetupScreenState extends ConsumerState<CameraSetupScreen> {
   }
 
   Future<void> _close() async {
+    // Reset orientation BEFORE popping so the previous screen never
+    // briefly renders in landscape (causes RenderFlex overflow).
+    await SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     await ref.read(activeSessionProvider.notifier).stop();
     await WakelockPlus.disable();
     if (mounted) context.pop();

@@ -34,6 +34,16 @@ android {
         versionName = flutter.versionName
     }
 
+    packaging {
+        jniLibs {
+            // 16 KB page support (Android 15 / Galaxy S25): keep native libs
+            // UNcompressed and page-aligned inside the APK so they are mmap'd
+            // directly. This is the modern AGP default; stated explicitly so
+            // nobody re-enables legacy extraction and breaks 16 KB devices.
+            useLegacyPackaging = false
+        }
+    }
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.
