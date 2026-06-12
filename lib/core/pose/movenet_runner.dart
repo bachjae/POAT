@@ -10,6 +10,7 @@ library;
 
 import 'dart:typed_data';
 
+import 'package:flutter/services.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 
 import '../engine/engine_types.dart';
@@ -26,39 +27,30 @@ enum MoveNetVariant {
 }
 
 class MoveNetRunner {
-  MoveNetRunner._(this.variant, this._interpreter, this._worker);
+  MoveNetRunner._(this.variant, this._worker);
 
   final MoveNetVariant variant;
-  final Interpreter _interpreter;
   final PoseIsolate _worker;
 
   static Future<MoveNetRunner> load(MoveNetVariant variant) async {
-    Interpreter interpreter;
-    try {
-      interpreter = await Interpreter.fromAsset(
-        variant.assetPath,
-        options: InterpreterOptions()
-          ..threads = 4
-          ..addDelegate(
-              XNNPackDelegate(options: XNNPackDelegateOptions(numThreads: 4))),
-      );
-    } catch (_) {
-      // XNNPACK can fail to apply on some devices/models; plain multithreaded
-      // CPU still works.
-      interpreter = await Interpreter.fromAsset(
-        variant.assetPath,
-        options: InterpreterOptions()..threads = 4,
-      );
-    }
-    // f16 variants take float32 input (0–255 range); int8 variants take uint8.
-    final inputIsFloat =
-        interpreter.getInputTensor(0).type == TensorType.float32;
+    // Load model bytes in the main isolate — rootBundle is platform-channel-
+    // backed and can only be called here. The bytes are passed to the worker
+    // which creates its own Interpreter (with XNNPACK) in its own OS thread.
+    final modelData = await rootBundle.load(variant.assetPath);
+    final modelBytes = modelData.buffer.asUint8List();
+
+    // Quick synchronous probe to determine the input tensor type. We close
+    // this interpreter immediately; the worker creates the real one.
+    final probe = Interpreter.fromBuffer(modelBytes);
+    final inputIsFloat = probe.getInputTensor(0).type == TensorType.float32;
+    probe.close();
+
     final worker = await PoseIsolate.spawn(
-      interpreterAddress: interpreter.address,
+      modelBytes: modelBytes,
       inputSize: variant.inputSize,
       inputIsFloat: inputIsFloat,
     );
-    return MoveNetRunner._(variant, interpreter, worker);
+    return MoveNetRunner._(variant, worker);
   }
 
   /// Android YUV420 camera frame → keypoints in UPRIGHT source coordinates
@@ -119,6 +111,5 @@ class MoveNetRunner {
 
   Future<void> dispose() async {
     await _worker.dispose();
-    _interpreter.close();
   }
 }

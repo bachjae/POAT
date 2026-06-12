@@ -5,11 +5,11 @@
 /// coordinates. Messages in both directions are flat typed-data buffers,
 /// which copy across isolates in microseconds.
 ///
-/// This replaces tflite's [IsolateInterpreter], which required the input
-/// tensor as nested Lists — ~200k boxed doubles serialized per frame, slower
-/// than the inference itself — while the pixel conversion still ran on the
-/// UI thread. Together those pushed effective pose throughput below 1 fps
-/// on real devices ("standing in frame and it couldn't detect me").
+/// The interpreter is created INSIDE the worker from the model bytes passed
+/// at spawn time. This is intentional: XNNPACK delegates are thread-affine —
+/// they must be created and used on the same OS thread. Sharing a native
+/// interpreter pointer across isolates (different OS threads) causes a native
+/// crash in release builds even though both sides are single-threaded Dart.
 ///
 /// Device-only by design — excluded from unit tests.
 library;
@@ -72,25 +72,31 @@ class PoseIsolate {
   Completer<Float32List>? _pending;
   bool _disposed = false;
 
-  /// [interpreterAddress] is the UI-isolate Interpreter's native address;
-  /// the worker reattaches via [Interpreter.fromAddress] and never closes it
-  /// (the spawner keeps ownership).
+  /// [modelBytes] is the raw TFLite flatbuffer; the worker creates its own
+  /// [Interpreter] from it (with XNNPACK) so the delegate is initialised on
+  /// the worker's OS thread — the only thread that ever calls invoke().
   static Future<PoseIsolate> spawn({
-    required int interpreterAddress,
+    required Uint8List modelBytes,
     required int inputSize,
     required bool inputIsFloat,
   }) async {
     final responses = ReceivePort();
     final isolate = await Isolate.spawn(
       _workerMain,
-      [responses.sendPort, interpreterAddress, inputSize, inputIsFloat],
+      [responses.sendPort, modelBytes, inputSize, inputIsFloat],
       debugName: 'pose-inference',
     );
     final ready = Completer<SendPort>();
     late final PoseIsolate worker;
     responses.listen((Object? message) {
       if (!ready.isCompleted) {
-        ready.complete(message as SendPort);
+        if (message is SendPort) {
+          ready.complete(message);
+        } else {
+          // Worker sent an error string instead of its SendPort.
+          ready.completeError(
+              StateError('pose isolate failed to initialise: $message'));
+        }
         return;
       }
       final pending = worker._pending;
@@ -130,10 +136,32 @@ class PoseIsolate {
 
 Future<void> _workerMain(List<Object> init) async {
   final replies = init[0] as SendPort;
-  final interpreter =
-      Interpreter.fromAddress(init[1] as int, allocated: true);
+  final modelBytes = init[1] as Uint8List;
   final inputSize = init[2] as int;
   final inputIsFloat = init[3] as bool;
+
+  // Create the interpreter in THIS isolate's OS thread so XNNPACK is
+  // initialised here and all invoke() calls stay on the same thread.
+  final Interpreter interpreter;
+  try {
+    try {
+      interpreter = Interpreter.fromBuffer(
+        modelBytes,
+        options: InterpreterOptions()
+          ..threads = 4
+          ..addDelegate(
+              XNNPackDelegate(options: XNNPackDelegateOptions(numThreads: 4))),
+      );
+    } catch (_) {
+      interpreter = Interpreter.fromBuffer(
+        modelBytes,
+        options: InterpreterOptions()..threads = 4,
+      );
+    }
+  } catch (e) {
+    replies.send('$e');
+    return;
+  }
 
   final commands = ReceivePort();
   replies.send(commands.sendPort);
@@ -205,5 +233,6 @@ Future<void> _workerMain(List<Object> init) async {
       replies.send('$e');
     }
   }
+  interpreter.close();
   commands.close();
 }
