@@ -1,12 +1,16 @@
 /// Live camera → MoveNet pose stream (SPEC §3).
 ///
-/// Frames flow camera → rotate/letterbox/convert → MoveNet → smooth →
-/// PoseFrame and are discarded; no `File` writes exist anywhere in this
-/// path (PRD privacy requirement). Frames are rotated upright before
+/// Frames flow camera → pose isolate (rotate/letterbox/convert + MoveNet)
+/// → smooth → PoseFrame and are discarded; no `File` writes exist anywhere
+/// in this path (PRD privacy requirement). Frames are rotated upright before
 /// inference (MoveNet is trained on upright people — feeding raw sensor
 /// orientation is why detection used to fail on mounted phones) and
 /// letterboxed so the player is never stretched. Output keypoints are
 /// One-Euro smoothed to kill estimator jitter without lagging real swings.
+///
+/// Supports the back camera (default, court-mount) and the front/selfie
+/// camera (so the player can watch what the app detects); [switchCamera]
+/// flips live during setup.
 ///
 /// FPS throttles 24/15/10 and the thermal listener drops to Lightning@10
 /// on serious throttling. Device-only by design — excluded from unit tests.
@@ -23,7 +27,6 @@ import '../engine/engine_types.dart';
 import '../pose/movenet_runner.dart';
 import '../pose/pose_smoother.dart';
 import '../pose/pose_source.dart';
-import 'frame_converter.dart';
 
 const _orientationDegrees = {
   DeviceOrientation.portraitUp: 0,
@@ -33,12 +36,14 @@ const _orientationDegrees = {
 };
 
 class CameraPoseSource implements PoseSource {
-  CameraPoseSource({this.targetFps = 24});
+  CameraPoseSource({this.targetFps = 24, bool preferFrontCamera = false})
+      : _preferFront = preferFrontCamera;
 
   int targetFps;
 
   final _frames = StreamController<PoseFrame>.broadcast();
   final _smoother = PoseSmoother();
+  List<CameraDescription>? _cameras;
   CameraController? _controller;
   CameraDescription? _camera;
   MoveNetRunner? _runner;
@@ -47,6 +52,8 @@ class CameraPoseSource implements PoseSource {
   bool _inferring = false;
   Future<void>? _inFlight;
   bool _thermalFallback = false;
+  bool _preferFront;
+  bool _switching = false;
 
   @override
   Stream<PoseFrame> get frames => _frames.stream;
@@ -61,16 +68,41 @@ class CameraPoseSource implements PoseSource {
 
   bool get thermalFallbackActive => _thermalFallback;
 
+  /// True when the selfie camera is active — the preview is mirrored, so
+  /// overlays must mirror to match.
+  bool get isFrontCamera =>
+      _camera?.lensDirection == CameraLensDirection.front;
+
+  /// True when the device has both a front and a back camera.
+  bool get canSwitchCamera {
+    final cams = _cameras;
+    if (cams == null) return false;
+    return cams.any((c) => c.lensDirection == CameraLensDirection.front) &&
+        cams.any((c) => c.lensDirection == CameraLensDirection.back);
+  }
+
   @override
   Future<void> start() async {
-    final cameras = await availableCameras();
-    final back = cameras.firstWhere(
-      (c) => c.lensDirection == CameraLensDirection.back,
-      orElse: () => cameras.first,
-    );
-    _camera = back;
-    _controller = CameraController(
-      back,
+    _cameras = await availableCameras();
+    _runner = await MoveNetRunner.load(MoveNetVariant.thunder);
+    _thermalSub = Thermal().onThermalStatusChanged.listen(_onThermal);
+    await _startController();
+  }
+
+  CameraDescription _pickCamera() {
+    final cams = _cameras!;
+    final wanted = _preferFront
+        ? CameraLensDirection.front
+        : CameraLensDirection.back;
+    return cams.firstWhere((c) => c.lensDirection == wanted,
+        orElse: () => cams.first);
+  }
+
+  Future<void> _startController() async {
+    final camera = _pickCamera();
+    _camera = camera;
+    final controller = CameraController(
+      camera,
       // 720p: enough pixel density that the player still spans a useful
       // share of the MoveNet crop from fence-mount distance.
       ResolutionPreset.high,
@@ -79,10 +111,32 @@ class CameraPoseSource implements PoseSource {
           ? ImageFormatGroup.bgra8888
           : ImageFormatGroup.yuv420,
     );
-    await _controller!.initialize();
-    _runner = await MoveNetRunner.load(MoveNetVariant.thunder);
-    _thermalSub = Thermal().onThermalStatusChanged.listen(_onThermal);
-    await _controller!.startImageStream(_onImage);
+    _controller = controller;
+    await controller.initialize();
+    await controller.startImageStream(_onImage);
+  }
+
+  /// Flips between the back and selfie cameras without tearing down the
+  /// runner or the frames stream (subscribers keep flowing).
+  Future<void> switchCamera() async {
+    if (_switching || !canSwitchCamera) return;
+    _switching = true;
+    try {
+      _preferFront = !_preferFront;
+      final old = _controller;
+      _controller = null;
+      if (old != null) {
+        if (old.value.isStreamingImages) await old.stopImageStream();
+        await old.dispose();
+      }
+      try {
+        await _inFlight;
+      } catch (_) {}
+      _smoother.reset();
+      await _startController();
+    } finally {
+      _switching = false;
+    }
   }
 
   /// Degrees the sensor image must be rotated clockwise to be upright in
@@ -120,7 +174,7 @@ class CameraPoseSource implements PoseSource {
 
   Future<void> _onImage(CameraImage image) async {
     final runner = _runner;
-    if (runner == null || _inferring) return;
+    if (runner == null || _inferring || _switching) return;
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     if (nowMs - _lastFrameMs < 1000 ~/ targetFps) return;
     _lastFrameMs = nowMs;
@@ -129,6 +183,9 @@ class CameraPoseSource implements PoseSource {
     _inFlight = work;
     try {
       await work;
+    } catch (_) {
+      // A failed frame (e.g. mid camera-switch or runner teardown) is
+      // dropped; the stream keeps flowing.
     } finally {
       _inferring = false;
     }
@@ -137,18 +194,22 @@ class CameraPoseSource implements PoseSource {
   Future<void> _processImage(
       CameraImage image, MoveNetRunner runner, int nowMs) async {
     final rotation = _rotationDegrees();
-    final ConvertedFrame converted;
+    final upright = rotation % 180 == 0
+        ? (width: image.width, height: image.height)
+        : (width: image.height, height: image.width);
+    lastSourceSize = upright;
+    final PoseFrame pose;
     if (image.format.group == ImageFormatGroup.bgra8888) {
-      converted = bgraToRgb(
+      pose = await runner.estimateBgra8888(
         width: image.width,
         height: image.height,
         bgra: image.planes[0].bytes,
         rowStride: image.planes[0].bytesPerRow,
-        outSize: runner.variant.inputSize,
         rotationDegrees: rotation,
+        timestampMs: nowMs,
       );
     } else {
-      converted = yuv420ToRgb(
+      pose = await runner.estimateYuv420(
         width: image.width,
         height: image.height,
         yPlane: image.planes[0].bytes,
@@ -157,17 +218,14 @@ class CameraPoseSource implements PoseSource {
         yRowStride: image.planes[0].bytesPerRow,
         uvRowStride: image.planes[1].bytesPerRow,
         uvPixelStride: image.planes[1].bytesPerPixel ?? 1,
-        outSize: runner.variant.inputSize,
         rotationDegrees: rotation,
+        timestampMs: nowMs,
       );
     }
-    lastSourceSize =
-        (width: converted.uprightWidth, height: converted.uprightHeight);
-    final pose = await runner.estimate(converted, timestampMs: nowMs);
     final smoothed = _smoother.smooth(
       pose,
-      width: converted.uprightWidth,
-      height: converted.uprightHeight,
+      width: upright.width,
+      height: upright.height,
     );
     if (!_frames.isClosed) _frames.add(smoothed);
   }

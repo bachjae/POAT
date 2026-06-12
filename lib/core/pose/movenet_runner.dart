@@ -1,16 +1,19 @@
 /// MoveNet SinglePose inference via tflite_flutter (SPEC §4).
 ///
-/// Thunder (256², default) or Lightning (192², thermal fallback). Runs
-/// inside [IsolateInterpreter] so per-frame inference never blocks the UI
-/// thread. Device-only by design — excluded from unit tests.
+/// Thunder (256², default) or Lightning (192², thermal fallback). The
+/// interpreter runs with XNNPACK + 4 threads (several× faster than the
+/// plain CPU path on the f16 models) inside a dedicated [PoseIsolate]:
+/// camera bytes go in as flat typed data, keypoints come back as 51 floats,
+/// and neither pixel conversion nor inference ever touches the UI thread.
+/// Device-only by design — excluded from unit tests.
 library;
 
 import 'dart:typed_data';
 
 import 'package:tflite_flutter/tflite_flutter.dart';
 
-import '../camera/frame_converter.dart';
 import '../engine/engine_types.dart';
+import 'pose_isolate.dart';
 
 enum MoveNetVariant {
   thunder('assets/models/movenet_thunder.tflite', 256),
@@ -23,64 +26,99 @@ enum MoveNetVariant {
 }
 
 class MoveNetRunner {
-  MoveNetRunner._(this.variant, this._interpreter, this._isolate,
-      this._inputIsFloat);
+  MoveNetRunner._(this.variant, this._interpreter, this._worker);
 
   final MoveNetVariant variant;
   final Interpreter _interpreter;
-  final IsolateInterpreter _isolate;
-
-  /// f16 variants take float32 input (0–255 range); int8 variants take uint8.
-  final bool _inputIsFloat;
+  final PoseIsolate _worker;
 
   static Future<MoveNetRunner> load(MoveNetVariant variant) async {
-    final interpreter = await Interpreter.fromAsset(
-      variant.assetPath,
-      options: InterpreterOptions()..threads = 2,
+    Interpreter interpreter;
+    try {
+      interpreter = await Interpreter.fromAsset(
+        variant.assetPath,
+        options: InterpreterOptions()
+          ..threads = 4
+          ..addDelegate(
+              XNNPackDelegate(options: XNNPackDelegateOptions(numThreads: 4))),
+      );
+    } catch (_) {
+      // XNNPACK can fail to apply on some devices/models; plain multithreaded
+      // CPU still works.
+      interpreter = await Interpreter.fromAsset(
+        variant.assetPath,
+        options: InterpreterOptions()..threads = 4,
+      );
+    }
+    // f16 variants take float32 input (0–255 range); int8 variants take uint8.
+    final inputIsFloat =
+        interpreter.getInputTensor(0).type == TensorType.float32;
+    final worker = await PoseIsolate.spawn(
+      interpreterAddress: interpreter.address,
+      inputSize: variant.inputSize,
+      inputIsFloat: inputIsFloat,
     );
-    final isolate =
-        await IsolateInterpreter.create(address: interpreter.address);
-    final inputType = interpreter.getInputTensor(0).type;
-    return MoveNetRunner._(
-        variant, interpreter, isolate, inputType == TensorType.float32);
+    return MoveNetRunner._(variant, interpreter, worker);
   }
 
-  /// Runs pose estimation on a letterboxed upright frame. Returns keypoints
-  /// in UPRIGHT source coordinates (rotation + letterbox undone), so they
-  /// overlay the preview and feed the engine in the player's real geometry.
-  Future<PoseFrame> estimate(
-    ConvertedFrame frame, {
+  /// Android YUV420 camera frame → keypoints in UPRIGHT source coordinates
+  /// (rotation + letterbox undone), so they overlay the preview and feed the
+  /// engine in the player's real geometry.
+  Future<PoseFrame> estimateYuv420({
+    required int width,
+    required int height,
+    required Uint8List yPlane,
+    required Uint8List uPlane,
+    required Uint8List vPlane,
+    required int yRowStride,
+    required int uvRowStride,
+    required int uvPixelStride,
+    required int rotationDegrees,
     required int timestampMs,
   }) async {
-    final rgb = frame.image;
-    final size = variant.inputSize;
-    final Object input;
-    if (_inputIsFloat) {
-      final f = Float32List(size * size * 3);
-      for (var i = 0; i < f.length; i++) {
-        f[i] = rgb.bytes[i].toDouble();
-      }
-      input = f.reshape([1, size, size, 3]);
-    } else {
-      input = rgb.bytes.reshape([1, size, size, 3]);
-    }
-    // Output: [1, 1, 17, 3] as (y, x, score), normalized 0..1.
-    final output = List.generate(
-        1, (_) => List.generate(1, (_) => List.generate(17, (_) => List.filled(3, 0.0))));
-    await _isolate.run(input, output);
-    final kp = <List<double>>[
-      for (var i = 0; i < 17; i++)
-        [
-          ((output[0][0][i][1] * size) - frame.padX) / frame.scale,
-          ((output[0][0][i][0] * size) - frame.padY) / frame.scale,
-          output[0][0][i][2],
-        ],
-    ];
-    return PoseFrame(timestampMs: timestampMs, keypoints: kp);
+    final kp = await _worker.infer(PoseFrameRequest.yuv420(
+      width: width,
+      height: height,
+      yPlane: yPlane,
+      uPlane: uPlane,
+      vPlane: vPlane,
+      yRowStride: yRowStride,
+      uvRowStride: uvRowStride,
+      uvPixelStride: uvPixelStride,
+      rotationDegrees: rotationDegrees,
+    ));
+    return _toPoseFrame(kp, timestampMs);
   }
 
+  /// iOS BGRA8888 camera frame → keypoints in UPRIGHT source coordinates.
+  Future<PoseFrame> estimateBgra8888({
+    required int width,
+    required int height,
+    required Uint8List bgra,
+    required int rowStride,
+    required int rotationDegrees,
+    required int timestampMs,
+  }) async {
+    final kp = await _worker.infer(PoseFrameRequest.bgra8888(
+      width: width,
+      height: height,
+      bgra: bgra,
+      rowStride: rowStride,
+      rotationDegrees: rotationDegrees,
+    ));
+    return _toPoseFrame(kp, timestampMs);
+  }
+
+  PoseFrame _toPoseFrame(Float32List kp, int timestampMs) => PoseFrame(
+        timestampMs: timestampMs,
+        keypoints: [
+          for (var i = 0; i < 17; i++)
+            [kp[i * 3], kp[i * 3 + 1], kp[i * 3 + 2]],
+        ],
+      );
+
   Future<void> dispose() async {
-    await _isolate.close();
+    await _worker.dispose();
     _interpreter.close();
   }
 }

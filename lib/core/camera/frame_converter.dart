@@ -9,6 +9,11 @@
 /// letterbox mapping so keypoints can be projected back into upright
 /// source coordinates exactly.
 ///
+/// The output→source mapping is separable per axis, so each conversion
+/// builds two small lookup tables (one per output axis) and the per-pixel
+/// inner loop is pure index arithmetic — no calls, no divisions. The naive
+/// per-pixel mapping was a measurable chunk of the live pose budget.
+///
 /// Frames are Uint8List in memory, released after inference — nothing in
 /// this path ever touches disk (PRD privacy requirement).
 library;
@@ -55,31 +60,6 @@ class ConvertedFrame {
   final double padY;
 }
 
-/// Per-output-pixel mapping through letterbox + rotation back to source
-/// (x, y). Returns null for letterbox padding.
-(int, int)? _sourcePixel({
-  required int ox,
-  required int oy,
-  required int width,
-  required int height,
-  required int rotationDegrees,
-  required double scale,
-  required double padX,
-  required double padY,
-}) {
-  final rx = ((ox - padX) / scale).floor();
-  final ry = ((oy - padY) / scale).floor();
-  final rw = rotationDegrees % 180 == 0 ? width : height;
-  final rh = rotationDegrees % 180 == 0 ? height : width;
-  if (rx < 0 || ry < 0 || rx >= rw || ry >= rh) return null;
-  return switch (rotationDegrees) {
-    90 => (ry, height - 1 - rx),
-    180 => (width - 1 - rx, height - 1 - ry),
-    270 => (width - 1 - ry, rx),
-    _ => (rx, ry),
-  };
-}
-
 (double, double, double) _letterbox(
     int width, int height, int rotationDegrees, int outSize) {
   final rw = rotationDegrees % 180 == 0 ? width : height;
@@ -88,6 +68,59 @@ class ConvertedFrame {
   final padX = (outSize - rw * scale) / 2.0;
   final padY = (outSize - rh * scale) / 2.0;
   return (scale, padX, padY);
+}
+
+/// Per-axis output→source index tables. The rotation sends one output axis
+/// to source-x and the other to source-y:
+///   rot 0:   sx = col[ox], sy = row[oy]
+///   rot 90:  sx = row[oy], sy = col[ox]
+///   rot 180: sx = col[ox], sy = row[oy]
+///   rot 270: sx = row[oy], sy = col[ox]
+/// so [swapped] is true for 90/270. Entries are -1 in letterbox padding.
+class _AxisMaps {
+  _AxisMaps(this.col, this.row, this.swapped);
+
+  final Int32List col;
+  final Int32List row;
+  final bool swapped;
+}
+
+_AxisMaps _buildAxisMaps({
+  required int width,
+  required int height,
+  required int rotationDegrees,
+  required int outSize,
+  required double scale,
+  required double padX,
+  required double padY,
+}) {
+  final rw = rotationDegrees % 180 == 0 ? width : height;
+  final rh = rotationDegrees % 180 == 0 ? height : width;
+  final col = Int32List(outSize);
+  final row = Int32List(outSize);
+  for (var ox = 0; ox < outSize; ox++) {
+    final rx = ((ox - padX) / scale).floor();
+    col[ox] = rx < 0 || rx >= rw
+        ? -1
+        : switch (rotationDegrees) {
+            90 => height - 1 - rx, // → sy
+            180 => width - 1 - rx, // → sx
+            270 => rx, // → sy
+            _ => rx, // → sx
+          };
+  }
+  for (var oy = 0; oy < outSize; oy++) {
+    final ry = ((oy - padY) / scale).floor();
+    row[oy] = ry < 0 || ry >= rh
+        ? -1
+        : switch (rotationDegrees) {
+            90 => ry, // → sx
+            180 => height - 1 - ry, // → sy
+            270 => width - 1 - ry, // → sx
+            _ => ry, // → sy
+          };
+  }
+  return _AxisMaps(col, row, rotationDegrees % 180 != 0);
 }
 
 /// Android camera stream planes (Y, U, V) → upright RGB letterboxed into
@@ -106,35 +139,43 @@ ConvertedFrame yuv420ToRgb({
   int rotationDegrees = 0,
 }) {
   final (scale, padX, padY) = _letterbox(width, height, rotationDegrees, outSize);
-  final out = Uint8List(outSize * outSize * 3);
+  final maps = _buildAxisMaps(
+    width: width,
+    height: height,
+    rotationDegrees: rotationDegrees,
+    outSize: outSize,
+    scale: scale,
+    padX: padX,
+    padY: padY,
+  );
+  final col = maps.col, row = maps.row;
+  final swapped = maps.swapped;
+  final out = Uint8List(outSize * outSize * 3); // Padding stays black (0).
   var o = 0;
   for (var oy = 0; oy < outSize; oy++) {
+    final b = row[oy];
+    if (b < 0) {
+      o += outSize * 3;
+      continue;
+    }
     for (var ox = 0; ox < outSize; ox++) {
-      final src = _sourcePixel(
-        ox: ox,
-        oy: oy,
-        width: width,
-        height: height,
-        rotationDegrees: rotationDegrees,
-        scale: scale,
-        padX: padX,
-        padY: padY,
-      );
-      if (src == null) {
-        o += 3; // Letterbox padding stays black.
+      final a = col[ox];
+      if (a < 0) {
+        o += 3;
         continue;
       }
-      final (sx, sy) = src;
+      final sx = swapped ? b : a;
+      final sy = swapped ? a : b;
       final yv = yPlane[sy * yRowStride + sx];
       final uvIndex = (sy >> 1) * uvRowStride + (sx >> 1) * uvPixelStride;
       final u = uPlane[uvIndex] - 128;
       final v = vPlane[uvIndex] - 128;
       var r = yv + (1.370705 * v).round();
       var g = yv - (0.337633 * u).round() - (0.698001 * v).round();
-      var b = yv + (1.732446 * u).round();
+      var b2 = yv + (1.732446 * u).round();
       out[o++] = r < 0 ? 0 : (r > 255 ? 255 : r);
       out[o++] = g < 0 ? 0 : (g > 255 ? 255 : g);
-      out[o++] = b < 0 ? 0 : (b > 255 ? 255 : b);
+      out[o++] = b2 < 0 ? 0 : (b2 > 255 ? 255 : b2);
     }
   }
   return ConvertedFrame(
@@ -158,25 +199,33 @@ ConvertedFrame bgraToRgb({
   int rotationDegrees = 0,
 }) {
   final (scale, padX, padY) = _letterbox(width, height, rotationDegrees, outSize);
+  final maps = _buildAxisMaps(
+    width: width,
+    height: height,
+    rotationDegrees: rotationDegrees,
+    outSize: outSize,
+    scale: scale,
+    padX: padX,
+    padY: padY,
+  );
+  final col = maps.col, row = maps.row;
+  final swapped = maps.swapped;
   final out = Uint8List(outSize * outSize * 3);
   var o = 0;
   for (var oy = 0; oy < outSize; oy++) {
+    final b = row[oy];
+    if (b < 0) {
+      o += outSize * 3;
+      continue;
+    }
     for (var ox = 0; ox < outSize; ox++) {
-      final src = _sourcePixel(
-        ox: ox,
-        oy: oy,
-        width: width,
-        height: height,
-        rotationDegrees: rotationDegrees,
-        scale: scale,
-        padX: padX,
-        padY: padY,
-      );
-      if (src == null) {
+      final a = col[ox];
+      if (a < 0) {
         o += 3;
         continue;
       }
-      final (sx, sy) = src;
+      final sx = swapped ? b : a;
+      final sy = swapped ? a : b;
       final p = sy * rowStride + sx * 4;
       out[o++] = bgra[p + 2];
       out[o++] = bgra[p + 1];
