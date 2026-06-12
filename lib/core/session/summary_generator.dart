@@ -100,13 +100,28 @@ class DrillCatalog {
 
   final List<Drill> drills;
 
-  /// Drills whose `fixes` match any of [ids], in [ids] order, deduped.
+  /// Drills whose `fixes` match any of [ids], breadth-first and deduped:
+  /// one drill per deviation (in [ids] priority order) before any deviation
+  /// gets a second, so callers taking the first N cover N different faults
+  /// instead of N drills for the worst one.
   List<Drill> forDeviations(List<String> ids) {
+    final queues = [
+      for (final id in ids) [for (final d in drills) if (d.fixes.contains(id)) d],
+    ];
     final out = <Drill>[];
     final seen = <String>{};
-    for (final id in ids) {
-      for (final drill in drills) {
-        if (drill.fixes.contains(id) && seen.add(drill.id)) out.add(drill);
+    var added = true;
+    while (added) {
+      added = false;
+      for (final queue in queues) {
+        while (queue.isNotEmpty) {
+          final drill = queue.removeAt(0);
+          if (seen.add(drill.id)) {
+            out.add(drill);
+            added = true;
+            break;
+          }
+        }
       }
     }
     return out;

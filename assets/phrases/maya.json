@@ -14,10 +14,10 @@
       "coil the shoulders before the bounce",
       "bigger turn on the takeback",
       "shoulders around sooner",
-      "Come on \u2014 turn those shoulders earlier",
-      "You've got this \u2014 fuller shoulder turn",
-      "There it is \u2014 shoulders around sooner",
-      "Nearly there \u2014 bigger turn on the takeback"
+      "Come on — turn those shoulders earlier",
+      "You've got this — fuller shoulder turn",
+      "There it is — shoulders around sooner",
+      "Nearly there — bigger turn on the takeback"
     ],
     "cue:shoulder_turn:high": [
       "shorten the shoulder turn",
@@ -26,10 +26,10 @@
       "smaller turn, same intent",
       "keep the turn compact",
       "don't over-rotate the shoulders",
-      "Come on \u2014 shorten the shoulder turn",
-      "You've got this \u2014 ease off the coil",
-      "There it is \u2014 less wind-up this time",
-      "Nearly there \u2014 smaller turn, same intent"
+      "Come on — shorten the shoulder turn",
+      "You've got this — ease off the coil",
+      "There it is — less wind-up this time",
+      "Nearly there — smaller turn, same intent"
     ],
     "cue:knee_flexion:low": [
       "sit lower into your legs",
@@ -38,10 +38,10 @@
       "drop the seat an inch",
       "stay low through the shot",
       "more knee bend on the prep",
-      "Come on \u2014 sit lower into your legs",
-      "You've got this \u2014 bend those knees",
-      "There it is \u2014 get your base lower",
-      "Nearly there \u2014 drop the seat an inch"
+      "Come on — sit lower into your legs",
+      "You've got this — bend those knees",
+      "There it is — get your base lower",
+      "Nearly there — drop the seat an inch"
     ],
     "cue:knee_flexion:high": [
       "stay a touch taller",
@@ -50,10 +50,10 @@
       "don't sink so deep",
       "lighter in the legs",
       "rise out of the crouch slightly",
-      "Come on \u2014 stay a touch taller",
-      "You've got this \u2014 less squat, more spring",
-      "Nearly there \u2014 don't sink so deep",
-      "You've got this \u2014 lighter in the legs"
+      "Come on — stay a touch taller",
+      "You've got this — less squat, more spring",
+      "Nearly there — don't sink so deep",
+      "You've got this — lighter in the legs"
     ],
     "cue:trunk_tilt:low": [
       "stand a little more upright",
@@ -62,10 +62,10 @@
       "straighten up at address",
       "posture up before the swing",
       "keep the trunk vertical",
-      "Come on \u2014 stand a little more upright",
-      "You've got this \u2014 lift the chest",
-      "There it is \u2014 tall through the spine",
-      "Nearly there \u2014 straighten up at address"
+      "Come on — stand a little more upright",
+      "You've got this — lift the chest",
+      "There it is — tall through the spine",
+      "Nearly there — straighten up at address"
     ],
     "cue:trunk_tilt:high": [
       "stay balanced, don't lean away",
@@ -74,10 +74,10 @@
       "no falling off the shot",
       "control the lean",
       "finish on balance",
-      "Come on \u2014 stay balanced, don't lean away",
-      "You've got this \u2014 quiet upper body",
-      "There it is \u2014 keep the chest steady",
-      "Nearly there \u2014 no falling off the shot"
+      "Come on — stay balanced, don't lean away",
+      "You've got this — quiet upper body",
+      "There it is — keep the chest steady",
+      "Nearly there — no falling off the shot"
     ],
     "cue:elbow_angle:low": [
       "extend through contact",
@@ -86,10 +86,10 @@
       "reach through the ball",
       "longer arm at the hit",
       "stretch the hitting arm",
-      "Come on \u2014 extend through contact",
-      "You've got this \u2014 free the arm out",
-      "There it is \u2014 unbend that elbow",
-      "Nearly there \u2014 reach through the ball"
+      "Come on — extend through contact",
+      "You've got this — free the arm out",
+      "There it is — unbend that elbow",
+      "Nearly there — reach through the ball"
     ],
     "cue:elbow_angle:high": [
       "soften the elbow slightly",
@@ -98,10 +98,10 @@
       "relax the hitting elbow",
       "a touch of bend at contact",
       "keep the arm springy",
-      "Come on \u2014 soften the elbow slightly",
-      "Nearly there \u2014 relax the hitting elbow",
-      "There it is \u2014 keep the arm springy",
-      "Come on \u2014 keep the arm springy"
+      "Come on — soften the elbow slightly",
+      "Nearly there — relax the hitting elbow",
+      "There it is — keep the arm springy",
+      "Come on — keep the arm springy"
     ],
     "cue:hip_shoulder_sep:low": [
       "coil shoulders past the hips",
@@ -110,10 +110,10 @@
       "load the torso twist",
       "wind the upper body more",
       "let the shoulders lead the coil",
-      "Come on \u2014 coil shoulders past the hips",
-      "There it is \u2014 separate shoulders from hips",
-      "Nearly there \u2014 load the torso twist",
-      "Nearly there \u2014 wind the upper body more"
+      "Come on — coil shoulders past the hips",
+      "There it is — separate shoulders from hips",
+      "Nearly there — load the torso twist",
+      "Nearly there — wind the upper body more"
     ],
     "cue:hip_shoulder_sep:high": [
       "ease the coil back",
@@ -122,10 +122,10 @@
       "smooth out the separation",
       "calm the coil down",
       "match hips and shoulders better",
-      "Come on \u2014 ease the coil back",
-      "You've got this \u2014 less twist, more timing",
-      "There it is \u2014 don't over-wind the torso",
-      "Nearly there \u2014 smooth out the separation"
+      "Come on — ease the coil back",
+      "You've got this — less twist, more timing",
+      "There it is — don't over-wind the torso",
+      "Nearly there — smooth out the separation"
     ],
     "cue:contact_in_front:low": [
       "meet the ball out in front",
@@ -134,10 +134,10 @@
       "strike before it gets deep",
       "reach the contact point sooner",
       "play the ball in front",
-      "You've got this \u2014 take it earlier",
-      "There it is \u2014 contact further forward",
-      "Nearly there \u2014 strike before it gets deep",
-      "Nearly there \u2014 reach the contact point sooner"
+      "You've got this — take it earlier",
+      "There it is — contact further forward",
+      "Nearly there — strike before it gets deep",
+      "Nearly there — reach the contact point sooner"
     ],
     "cue:contact_in_front:high": [
       "let the ball come to you",
@@ -146,10 +146,10 @@
       "take it a beat later",
       "relax, it will arrive",
       "stay patient at contact",
-      "There it is \u2014 don't chase the contact",
-      "Nearly there \u2014 take it a beat later",
-      "You've got this \u2014 relax, it will arrive",
-      "There it is \u2014 stay patient at contact"
+      "There it is — don't chase the contact",
+      "Nearly there — take it a beat later",
+      "You've got this — relax, it will arrive",
+      "There it is — stay patient at contact"
     ],
     "cue:contact_height:low": [
       "contact higher, stretch for it",
@@ -158,10 +158,10 @@
       "full stretch to the ball",
       "strike at the peak",
       "taller contact point",
-      "Come on \u2014 contact higher, stretch for it",
-      "Nearly there \u2014 full stretch to the ball",
-      "You've got this \u2014 strike at the peak",
-      "There it is \u2014 taller contact point"
+      "Come on — contact higher, stretch for it",
+      "Nearly there — full stretch to the ball",
+      "You've got this — strike at the peak",
+      "There it is — taller contact point"
     ],
     "cue:contact_height:high": [
       "let contact settle lower",
@@ -170,10 +170,10 @@
       "hit it a touch lower",
       "ease the reach back",
       "find a comfortable height",
-      "Come on \u2014 let contact settle lower",
-      "You've got this \u2014 don't overreach the toss",
-      "Nearly there \u2014 hit it a touch lower",
-      "You've got this \u2014 ease the reach back"
+      "Come on — let contact settle lower",
+      "You've got this — don't overreach the toss",
+      "Nearly there — hit it a touch lower",
+      "You've got this — ease the reach back"
     ],
     "cue:wrist_finish_height:low": [
       "finish higher over the shoulder",
@@ -182,10 +182,10 @@
       "let the racket wrap high",
       "finish tall",
       "carry the swing all the way",
-      "Come on \u2014 finish higher over the shoulder",
-      "There it is \u2014 complete the follow-through",
-      "Nearly there \u2014 let the racket wrap high",
-      "You've got this \u2014 finish tall"
+      "Come on — finish higher over the shoulder",
+      "There it is — complete the follow-through",
+      "Nearly there — let the racket wrap high",
+      "You've got this — finish tall"
     ],
     "cue:wrist_finish_height:high": [
       "relax the finish",
@@ -194,10 +194,10 @@
       "softer finish this time",
       "ease the racket down",
       "smooth, not stiff, at the end",
-      "Come on \u2014 relax the finish",
-      "You've got this \u2014 let the follow-through breathe",
-      "There it is \u2014 don't force the wrap",
-      "Nearly there \u2014 softer finish this time"
+      "Come on — relax the finish",
+      "You've got this — let the follow-through breathe",
+      "There it is — don't force the wrap",
+      "Nearly there — softer finish this time"
     ],
     "cue:prep_before_contact_ms:low": [
       "start the preparation earlier",
@@ -206,10 +206,10 @@
       "earlier takeback, easier swing",
       "beat the ball with your prep",
       "no rushing, start sooner",
-      "Come on \u2014 start the preparation earlier",
-      "You've got this \u2014 racket back sooner",
-      "There it is \u2014 prepare before the bounce",
-      "Nearly there \u2014 earlier takeback, easier swing"
+      "Come on — start the preparation earlier",
+      "You've got this — racket back sooner",
+      "There it is — prepare before the bounce",
+      "Nearly there — earlier takeback, easier swing"
     ],
     "cue:prep_before_contact_ms:high": [
       "don't rush, let the swing breathe",
@@ -218,10 +218,10 @@
       "relax the rhythm",
       "easy on the trigger",
       "let the shot develop",
-      "You've got this \u2014 smooth tempo, no hurry",
-      "Nearly there \u2014 relax the rhythm",
-      "You've got this \u2014 easy on the trigger",
-      "There it is \u2014 let the shot develop"
+      "You've got this — smooth tempo, no hurry",
+      "Nearly there — relax the rhythm",
+      "You've got this — easy on the trigger",
+      "There it is — let the shot develop"
     ],
     "cue:split_step_rate:low": [
       "split step before every ball",
@@ -230,10 +230,10 @@
       "small bounce, big readiness",
       "feet alive before each shot",
       "time the split step",
-      "Come on \u2014 split step before every ball",
-      "You've got this \u2014 hop as they hit",
-      "There it is \u2014 land ready, every time",
-      "Nearly there \u2014 small bounce, big readiness"
+      "Come on — split step before every ball",
+      "You've got this — hop as they hit",
+      "There it is — land ready, every time",
+      "Nearly there — small bounce, big readiness"
     ],
     "cue:split_step_rate:high": [
       "calm the feet between balls",
@@ -242,10 +242,10 @@
       "quieter feet, same readiness",
       "fewer bounces, better timing",
       "relax between shots",
-      "Come on \u2014 calm the feet between balls",
-      "There it is \u2014 settle the rhythm down",
-      "Nearly there \u2014 quieter feet, same readiness",
-      "You've got this \u2014 fewer bounces, better timing"
+      "Come on — calm the feet between balls",
+      "There it is — settle the rhythm down",
+      "Nearly there — quieter feet, same readiness",
+      "You've got this — fewer bounces, better timing"
     ],
     "cue:stance_width:low": [
       "wider base, feet outside shoulders",
@@ -254,10 +254,10 @@
       "feet apart for balance",
       "widen up before the swing",
       "strong wide base",
-      "Come on \u2014 wider base, feet outside shoulders",
-      "You've got this \u2014 spread the stance",
-      "There it is \u2014 build a bigger platform",
-      "Nearly there \u2014 feet apart for balance"
+      "Come on — wider base, feet outside shoulders",
+      "You've got this — spread the stance",
+      "There it is — build a bigger platform",
+      "Nearly there — feet apart for balance"
     ],
     "cue:stance_width:high": [
       "bring the feet in a touch",
@@ -266,10 +266,10 @@
       "don't over-spread the feet",
       "comfortable width, not a split",
       "ease the stance in",
-      "You've got this \u2014 narrow the base slightly",
-      "There it is \u2014 stance a bit tighter",
-      "Nearly there \u2014 don't over-spread the feet",
-      "There it is \u2014 ease the stance in"
+      "You've got this — narrow the base slightly",
+      "There it is — stance a bit tighter",
+      "Nearly there — don't over-spread the feet",
+      "There it is — ease the stance in"
     ],
     "cue:recovery_steps:low": [
       "recover with quick shuffle steps",
@@ -278,10 +278,10 @@
       "quick steps to reset",
       "never watch, recover",
       "move back before the reply",
-      "Come on \u2014 recover with quick shuffle steps",
-      "Nearly there \u2014 quick steps to reset",
-      "You've got this \u2014 never watch, recover",
-      "Nearly there \u2014 never watch, recover"
+      "Come on — recover with quick shuffle steps",
+      "Nearly there — quick steps to reset",
+      "You've got this — never watch, recover",
+      "Nearly there — never watch, recover"
     ],
     "cue:recovery_steps:high": [
       "calm the recovery down",
@@ -290,10 +290,10 @@
       "easy feet on the way back",
       "controlled steps to the middle",
       "reset with rhythm",
-      "Come on \u2014 calm the recovery down",
-      "You've got this \u2014 fewer, bigger reset steps",
-      "There it is \u2014 smooth recovery, no scramble",
-      "There it is \u2014 reset with rhythm"
+      "Come on — calm the recovery down",
+      "You've got this — fewer, bigger reset steps",
+      "There it is — smooth recovery, no scramble",
+      "There it is — reset with rhythm"
     ],
     "encourage": [
       "yes, that's the swing",
@@ -345,13 +345,13 @@
       "perfect spot, I see everything"
     ],
     "system:lost_you": [
-      "I lost you \u2014 step back into frame",
+      "I lost you — step back into frame",
       "where'd you go? step back in",
       "come back into view for me",
       "I can't see you, shift back"
     ],
     "system:paused": [
-      "Paused \u2014 step back in when ready",
+      "Paused — step back in when ready",
       "take your time, we're paused",
       "paused, breathe a moment",
       "we'll pick it up when you're back"
@@ -364,7 +364,7 @@
     ],
     "system:session_end": [
       "great session, let's look at it",
-      "done \u2014 be proud of that work",
+      "done — be proud of that work",
       "that's a wrap, nice effort",
       "session complete, come see your numbers"
     ],
@@ -376,8 +376,38 @@
     ],
     "system:stroke_transition": [
       "great work! now {stroke}.",
-      "{stroke} next \u2014 you have got this.",
+      "{stroke} next — you have got this.",
       "switching to {stroke}, stay focused."
+    ],
+    "milestone:best": [
+      "best shot of the session, right there",
+      "new session best — that felt different",
+      "that's your best one yet, love it",
+      "top shot of the day so far"
+    ],
+    "milestone:streak": [
+      "look at that streak, all clean",
+      "clean shot after clean shot, keep stacking",
+      "you're on a roll, stay with it",
+      "that streak is no accident"
+    ],
+    "checkin:up": [
+      "quick check — averaging {avg} and climbing",
+      "you're at {avg} now, trending up",
+      "{avg} average and rising, love the work",
+      "averaging {avg}, and it's getting better"
+    ],
+    "checkin:down": [
+      "averaging {avg} — let's reset and breathe",
+      "{avg} right now, fresh start this ball",
+      "at {avg}, dipping a little — refocus",
+      "{avg} average, shake it off, next one"
+    ],
+    "checkin:steady": [
+      "holding steady at {avg}, nice and solid",
+      "{avg} average, consistent work out there",
+      "steady at {avg}, keep the rhythm",
+      "you're sitting at {avg}, dependable stuff"
     ]
   }
 }

@@ -45,6 +45,10 @@ class Sessions extends Table {
   /// ['forehand','backhand']. Empty array means single-stroke session.
   TextColumn get strokeSequence =>
       text().withDefault(const Constant('[]'))();
+
+  /// JSON-serialized [SessionInsights]: stroke/phase/metric breakdowns,
+  /// timeline, consistency, streaks. Empty string on pre-v4 rows.
+  TextColumn get insights => text().withDefault(const Constant(''))();
 }
 
 /// One scored shot within a session.
@@ -57,6 +61,10 @@ class ShotStats extends Table {
   /// JSON map of phase id → score.
   TextColumn get phaseScores => text()();
   TextColumn get topDeviationId => text().nullable()();
+
+  /// JSON array of every deviation on this shot:
+  /// [{id, phase, direction, severity}]. '[]' on pre-v4 rows.
+  TextColumn get deviations => text().withDefault(const Constant('[]'))();
 
   /// Milliseconds from session start to this shot's contact.
   IntColumn get tOffsetMs => integer()();
@@ -105,7 +113,7 @@ class AppDatabase extends _$AppDatabase {
   factory AppDatabase.open() => AppDatabase(driftDatabase(name: 'rallycoach'));
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -116,6 +124,10 @@ class AppDatabase extends _$AppDatabase {
       if (from < 3) {
         await m.createTable(goals);
         await m.addColumn(sessions, sessions.strokeSequence);
+      }
+      if (from < 4) {
+        await m.addColumn(sessions, sessions.insights);
+        await m.addColumn(shotStats, shotStats.deviations);
       }
     },
   );

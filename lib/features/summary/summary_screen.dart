@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/providers.dart';
 import '../../app/theme.dart';
+import '../../core/session/session_insights.dart';
 import '../../core/session/summary_generator.dart';
 import '../../core/storage/database.dart';
 import '../../shared/widgets/rally_arc.dart';
@@ -82,6 +83,15 @@ class _Body extends StatelessWidget {
     final drillIds = (jsonDecode(session.drills) as List).cast<String>();
     final highlights = (jsonDecode(session.highlights) as List)
         .cast<Map<String, dynamic>>();
+    SessionInsights? insights;
+    if (session.insights.isNotEmpty) {
+      try {
+        insights = SessionInsights.fromJson(
+            jsonDecode(session.insights) as Map<String, dynamic>);
+      } catch (_) {
+        // Pre-v4 session — the summary stands without the deep sections.
+      }
+    }
     final drills = catalog == null
         ? const <Drill>[]
         : [
@@ -169,6 +179,7 @@ class _Body extends StatelessWidget {
             const SizedBox(height: 8),
             Text(session.encouragement, style: RcType.bodyDim),
           ],
+          if (insights != null) _InsightsSection(insights: insights),
           const SizedBox(height: 16),
           const Hairline(),
           const SizedBox(height: 16),
@@ -239,6 +250,232 @@ String _formatOffset(int ms) {
   final mm = (s ~/ 60).toString().padLeft(2, '0');
   final ss = (s % 60).toString().padLeft(2, '0');
   return '$mm:$ss';
+}
+
+/// The deep-analysis block: score timeline, session stats, stroke
+/// breakdown, swing-phase bars, and the goal outcome. Every number is
+/// measured (computed by [computeSessionInsights]) — this is the same data
+/// the coach chat is grounded in, so "Ask your coach" can expand on any of
+/// it.
+class _InsightsSection extends StatelessWidget {
+  const _InsightsSection({required this.insights});
+
+  final SessionInsights insights;
+
+  @override
+  Widget build(BuildContext context) {
+    final i = insights;
+    final weakest = i.weakestPhase;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (i.timeline.length >= 2) ...[
+          const SizedBox(height: 16),
+          const Hairline(),
+          const SizedBox(height: 16),
+          const Text('HOW IT WENT', style: RcType.heading),
+          const SizedBox(height: 8),
+          _TimelineBars(timeline: i.timeline),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: const [
+              Text('start', style: RcType.caption),
+              Text('end', style: RcType.caption),
+            ],
+          ),
+        ],
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            _StatChip(
+                label: 'CONSISTENCY', value: '${i.consistency.round()}'),
+            const SizedBox(width: 8),
+            _StatChip(label: 'BEST STREAK', value: '${i.bestCleanStreak}'),
+            const SizedBox(width: 8),
+            if (i.bestShotIndex >= 0)
+              _StatChip(
+                  label: 'BEST SHOT',
+                  value: '${i.bestShotScore.round()} · '
+                      '${_formatOffset(i.bestShotOffsetMs)}'),
+          ],
+        ),
+        if (i.strokes.length > 1) ...[
+          const SizedBox(height: 16),
+          const Hairline(),
+          const SizedBox(height: 16),
+          const Text('BY STROKE', style: RcType.heading),
+          const SizedBox(height: 8),
+          for (final e in i.strokes.entries)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 100,
+                    child: Text(
+                      e.key[0].toUpperCase() + e.key.substring(1),
+                      style: RcType.body,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      '${e.value.count} shots',
+                      style: RcType.caption,
+                    ),
+                  ),
+                  Text(
+                    'avg ${e.value.avgScore.round()} · '
+                    'best ${e.value.bestScore.round()}',
+                    style: RcType.stat.copyWith(fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+        ],
+        if (i.phaseAverages.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          const Hairline(),
+          const SizedBox(height: 16),
+          const Text('SWING PHASES', style: RcType.heading),
+          const SizedBox(height: 8),
+          for (final e in i.phaseAverages.entries)
+            _PhaseBar(
+              label: phaseLabels[e.key] ?? e.key,
+              score: e.value,
+              isWeakest: e.key == weakest && i.phaseAverages.length > 1,
+            ),
+          if (weakest != null && i.phaseAverages.length > 1)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '${phaseLabels[weakest] ?? weakest} is costing you the '
+                'most — ask your coach why.',
+                style: RcType.caption.copyWith(color: RcColors.clay),
+              ),
+            ),
+        ],
+        if (i.focus != null) ...[
+          const SizedBox(height: 12),
+          Text(
+            i.focus!.improved
+                ? 'Goal ${i.focus!.metricId.replaceAll('_', ' ')}: missed '
+                    '${(i.focus!.firstHalfRate * 100).round()}% early → '
+                    '${(i.focus!.secondHalfRate * 100).round()}% late. '
+                    'It\'s working.'
+                : 'Goal ${i.focus!.metricId.replaceAll('_', ' ')}: still at '
+                    '${(i.focus!.secondHalfRate * 100).round()}% late in '
+                    'the session — keep it as the focus.',
+            style: RcType.body,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Vertical mini-bars of the per-segment average scores (0–100).
+class _TimelineBars extends StatelessWidget {
+  const _TimelineBars({required this.timeline});
+
+  final List<double> timeline;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 56,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          for (var s = 0; s < timeline.length; s++) ...[
+            if (s > 0) const SizedBox(width: 4),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text('${timeline[s].round()}',
+                      style: RcType.stat.copyWith(
+                          fontSize: 10, color: RcColors.lineDim)),
+                  const SizedBox(height: 2),
+                  Container(
+                    height: (timeline[s].clamp(0, 100) / 100) * 40,
+                    decoration: BoxDecoration(
+                      color: RcColors.ball,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  const _StatChip({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          border: Border.all(color: RcColors.net),
+          borderRadius: BorderRadius.circular(RcDims.radius),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: RcType.caption.copyWith(fontSize: 10)),
+            Text(value, style: RcType.stat.copyWith(fontSize: 14)),
+          ],
+        ),
+      );
+}
+
+class _PhaseBar extends StatelessWidget {
+  const _PhaseBar({
+    required this.label,
+    required this.score,
+    required this.isWeakest,
+  });
+
+  final String label;
+  final double score;
+  final bool isWeakest;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Row(
+          children: [
+            SizedBox(width: 110, child: Text(label, style: RcType.caption)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                  value: (score / 100).clamp(0.0, 1.0),
+                  backgroundColor: RcColors.net.withValues(alpha: 0.3),
+                  color: isWeakest ? RcColors.clay : RcColors.ball,
+                  minHeight: 8,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 30,
+              child: Text('${score.round()}',
+                  style: RcType.stat.copyWith(fontSize: 12),
+                  textAlign: TextAlign.end),
+            ),
+          ],
+        ),
+      );
 }
 
 /// Score counts up over 400ms (DESIGN motion rules); instant when the

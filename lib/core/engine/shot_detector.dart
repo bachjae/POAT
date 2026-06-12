@@ -40,13 +40,17 @@ List<double> wristSpeeds(List<TimedKeypoints> frames) {
   return speeds;
 }
 
-/// Validates a candidate swing window against kinematic sanity checks.
+/// Validates a candidate swing window against kinematic sanity checks
+/// (1:1 mirror of `validate_shot_window` in python_lab/engine_math.py).
 ///
-/// Rejects noise glitches and dropped-frame artifacts:
-/// 1. Duration must be 400–2500 ms.
+/// Rejects tracking glitches without rejecting real swings. The window span
+/// is parameter-determined (peak ± `window` frames ≈ 3 s at 30 fps), so the
+/// duration gate only catches dropped-frame blowups, and the post/pre speed
+/// ratio only catches one-sided windows (post-peak tracking loss) — real
+/// follow-throughs are routinely FASTER than the windup (ratio > 1).
+/// 1. Wall-clock span must be 400–4000 ms.
 /// 2. Speed at peak±3 frames must be < 85% of peak speed (apex shape).
-/// 3. Post-peak mean / pre-peak mean must be in [0.05, 0.95] — real swings
-///    decelerate sharply; flat-speed glitches maintain speed after "peak".
+/// 3. Post-peak mean / pre-peak mean must be in [0.05, 5.0].
 bool _validateShotWindow(
   List<TimedKeypoints> frames,
   ShotWindow shot,
@@ -54,9 +58,9 @@ bool _validateShotWindow(
 ) {
   final s = shot.start, p = shot.peak, e = shot.end;
 
-  // Rule 1: duration gate.
+  // Rule 1: duration gate (dropped-frame blowups only).
   final durationMs = frames[e].timestampMs - frames[s].timestampMs;
-  if (durationMs < 400 || durationMs > 2500) return false;
+  if (durationMs < 400 || durationMs > 4000) return false;
 
   // Rule 2: apex shape — neighbors at ±3 frames must drop below 85% of peak.
   final peakSpeed = speeds[p];
@@ -66,7 +70,7 @@ bool _validateShotWindow(
   if (speeds[leftIdx] >= 0.85 * peakSpeed) return false;
   if (speeds[rightIdx] >= 0.85 * peakSpeed) return false;
 
-  // Rule 3: accel/decel ratio.
+  // Rule 3: one-sided window gate.
   var preSum = 0.0, preCount = 0;
   for (var i = s; i < p; i++) {
     preSum += speeds[i];
@@ -79,7 +83,7 @@ bool _validateShotWindow(
   }
   if (preCount > 0 && postCount > 0 && preSum > 0) {
     final ratio = (postSum / postCount) / (preSum / preCount);
-    if (ratio < 0.05 || ratio > 0.95) return false;
+    if (ratio < 0.05 || ratio > 5.0) return false;
   }
 
   return true;

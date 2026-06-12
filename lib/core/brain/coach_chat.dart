@@ -82,16 +82,30 @@ class CoachChat {
   }
 
   /// Suggested question chips for the chat entry screen, seeded with the
-  /// session's most recurrent deviation (if any).
-  static List<String> suggestionChips(String? topDeviationId) {
+  /// session's most recurrent deviation (if any). [hasPhaseData] adds a
+  /// swing-phase chip and [hasHistory] a progress chip — both grounded in
+  /// data the coach can actually answer from.
+  static List<String> suggestionChips(
+    String? topDeviationId, {
+    bool hasPhaseData = false,
+    bool hasHistory = false,
+  }) {
+    final chips = <String>[];
     if (topDeviationId == null) {
-      return const ['How did I do overall?', 'What should I work on next?'];
+      chips.addAll(const [
+        'How did I do overall?',
+        'What should I work on next?',
+      ]);
+    } else {
+      final name = topDeviationId.replaceAll('_', ' ');
+      chips.addAll([
+        'Why does my $name matter?',
+        'What drill helps my $name?',
+        'How did I do overall?',
+      ]);
     }
-    final name = topDeviationId.replaceAll('_', ' ');
-    return [
-      'Why does my $name matter?',
-      'What drill helps my $name?',
-      'How did I do overall?',
-    ];
+    if (hasPhaseData) chips.add('Where in my swing am I losing points?');
+    if (hasHistory) chips.add('Am I improving?');
+    return chips;
   }
 }

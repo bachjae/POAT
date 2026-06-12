@@ -16,6 +16,7 @@ import '../../app/providers.dart';
 import '../../app/theme.dart';
 import '../../core/brain/coach_chat.dart';
 import '../../core/brain/lite_coach.dart';
+import '../../core/session/session_insights.dart';
 import '../../core/storage/database.dart';
 
 final _sessionProvider = FutureProvider.family<Session?, int>((ref, id) async {
@@ -47,6 +48,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Stream<String> Function(String question, List<ChatMessage> prior)? _coachAsk;
   Session? _session;
   bool _liteMode = false;
+  bool _hasPhaseData = false;
+  bool _hasHistory = false;
 
   @override
   void initState() {
@@ -63,9 +66,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final bank =
         await ref.read(phraseBankProvider(session.coachId).future);
     final catalog = await ref.read(drillCatalogProvider.future);
+    final history = await ref
+        .read(repositoryProvider)
+        .historyAggregates(excludeSessionId: session.id);
     if (!mounted) return;
+    SessionInsights? insights;
+    if (session.insights.isNotEmpty) {
+      try {
+        insights = SessionInsights.fromJson(
+            jsonDecode(session.insights) as Map<String, dynamic>);
+      } catch (_) {
+        // Pre-v4 or malformed row — the coach answers from the summary.
+      }
+    }
     setState(() {
       _session = session;
+      _hasPhaseData = insights?.phaseAverages.isNotEmpty ?? false;
+      _hasHistory = history.isNotEmpty;
       _messages = session.chatHistory.isEmpty
           ? []
           : ChatMessage.decodeHistory(session.chatHistory);
@@ -92,6 +109,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             strengths:
                 (jsonDecode(session.summaryGood) as List).cast<String>(),
             improvements: improvements,
+            insights: insights,
+            history: [
+              for (final h in history)
+                (
+                  date: h['date'] as String,
+                  type: h['type'] as String,
+                  score: h['score'] as int,
+                  shots: h['shots'] as int,
+                ),
+            ],
           ),
         );
         _coachAsk = lite.ask;
@@ -105,6 +132,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         'what_worked': jsonDecode(session.summaryGood),
         'work_on': jsonDecode(session.summaryImprove),
         'skill_tier': session.skillTier,
+        if (insights != null) 'insights': insights.toJson(),
       });
       final chat = CoachChat(
         runner: runner,
@@ -112,7 +140,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         personalityName: bank.personality.name,
         personalityStyle: bank.personality.style,
         sessionJson: shots,
-        historyJson: '[]',
+        historyJson: jsonEncode(history),
       );
       _coachAsk = chat.ask;
     });
@@ -218,7 +246,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               child: Wrap(
                 spacing: 8,
                 children: [
-                  for (final chip in CoachChat.suggestionChips(_topDeviation))
+                  for (final chip in CoachChat.suggestionChips(
+                    _topDeviation,
+                    hasPhaseData: _hasPhaseData,
+                    hasHistory: _hasHistory,
+                  ))
                     ActionChip(
                       label: Text(chip, style: RcType.caption),
                       side: const BorderSide(color: RcColors.net),

@@ -114,10 +114,10 @@ class SettingsScreen extends ConsumerWidget {
               final dir = await getTemporaryDirectory();
               final file = File('${dir.path}/rallycoach_sessions.csv');
               await file.writeAsString(csv);
-              await Share.shareXFiles(
-                [XFile(file.path, mimeType: 'text/csv')],
+              await SharePlus.instance.share(ShareParams(
+                files: [XFile(file.path, mimeType: 'text/csv')],
                 subject: 'RallyCoach session data',
-              );
+              ));
             },
           ),
           const SizedBox(height: 20),
@@ -169,7 +169,6 @@ class _ProModelImporterState extends ConsumerState<_ProModelImporter> {
 
   @override
   Widget build(BuildContext context) {
-    final brainAsync = ref.watch(brainStatusProvider);
     final managerAsync = ref.watch(modelManagerProvider);
 
     return Column(
@@ -221,7 +220,7 @@ class _ProModelImporterState extends ConsumerState<_ProModelImporter> {
                     _progress = 0;
                   });
                   try {
-                    final result = await FilePicker.platform.pickFiles(
+                    final result = await FilePicker.pickFiles(
                       type: FileType.custom,
                       allowedExtensions: ['litertlm'],
                     );

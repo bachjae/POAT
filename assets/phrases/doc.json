@@ -344,13 +344,13 @@
       "good position, all joints visible"
     ],
     "system:lost_you": [
-      "I lost you \u2014 step back into frame",
+      "I lost you — step back into frame",
       "tracking dropped, step back in",
       "no pose data, reposition please",
       "you've left my field of view"
     ],
     "system:paused": [
-      "Paused \u2014 step back in when ready",
+      "Paused — step back in when ready",
       "analysis paused, resume when ready",
       "on pause, data retained",
       "paused, your session is safe"
@@ -377,6 +377,36 @@
       "{stroke} phase starting.",
       "transitioning to {stroke}.",
       "beginning {stroke} analysis."
+    ],
+    "milestone:best": [
+      "new session maximum, well executed",
+      "highest score so far, mechanics aligned",
+      "session best — the pattern is converging",
+      "peak shot of the session, noted"
+    ],
+    "milestone:streak": [
+      "consecutive in-range shots, strong signal",
+      "the streak shows real motor learning",
+      "clean sequence continuing, pattern stabilising",
+      "repeatedly in range — that's retention"
+    ],
+    "checkin:up": [
+      "status: averaging {avg}, positive trend",
+      "{avg} mean score, improving curve",
+      "average {avg} and ascending, efficient work",
+      "at {avg}, trajectory is upward"
+    ],
+    "checkin:down": [
+      "averaging {avg}, slight decline — recalibrate",
+      "mean {avg}, trending down, simplify",
+      "{avg} average, fatigue pattern perhaps — breathe",
+      "at {avg}, regressing — reset fundamentals"
+    ],
+    "checkin:steady": [
+      "averaging {avg}, stable variance, good baseline",
+      "mean score {avg}, holding steady",
+      "{avg} average, consistent output, sustainable",
+      "steady {avg}, the pattern is repeatable"
     ]
   }
 }

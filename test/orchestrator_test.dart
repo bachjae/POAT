@@ -155,6 +155,20 @@ void main() {
     expect(stored.durationS, 12 * 60);
     final shots = await repository.shotsForSession(result.sessionId);
     expect(shots.single.stroke, 'forehand');
+
+    // Deep tracking: the full deviation list rides along with each shot…
+    final deviations = jsonDecode(shots.single.deviations) as List;
+    expect(deviations, isNotEmpty,
+        reason: 'the deviated fixture swing stores every deviation');
+    expect((deviations.first as Map)['id'], shots.single.topDeviationId);
+    expect((deviations.first as Map).keys,
+        containsAll(['id', 'phase', 'direction', 'severity']));
+    // …and the computed insights blob persists with the session.
+    final insights =
+        jsonDecode(stored.insights) as Map<String, dynamic>;
+    expect((insights['strokes'] as Map).keys, contains('forehand'));
+    expect(insights['timeline'], hasLength(1));
+    expect(insights['best_shot_index'], 0);
     await o.dispose();
   });
 
@@ -295,6 +309,63 @@ void main() {
         reason: 'brain should have been called at least once');
     expect(promptsCapture.any((p) => p.contains('Goal: elbow_angle')), isTrue,
         reason: 'goal metric injected into brain prompt');
+    await o.end();
+    await o.dispose();
+  });
+
+  test('ten-shot check-in milestone speaks the running average', () async {
+    // Exactly ten time-shifted copies of the fixture swing → ten shots.
+    final base = _vectorFrames('forehand_diagonal_q0.5_s12');
+    final span = base.last.timestampMs + 500;
+    final tenShots = [
+      for (var copy = 0; copy < 10; copy++)
+        for (final f in base)
+          PoseFrame(
+              timestampMs: f.timestampMs + span * copy,
+              keypoints: f.keypoints),
+    ];
+    final o = SessionOrchestrator(
+      poseSource: FixturePoseSource(tenShots),
+      coach: coach,
+      bank: bank,
+      references: references,
+      repository: repository,
+      catalog: catalog,
+      config: const SessionConfig(
+          type: 'forehand', coachId: 'coach_k', skillTier: 'intermediate'),
+      clock: () => now,
+      rng: math.Random(3),
+    );
+    final lastScores = <int>{};
+    var avgAt10 = -1;
+    o.stats.listen((s) {
+      lastScores.add(s.lastScore);
+      if (s.shots == 10) avgAt10 = s.avgScore;
+    });
+    await o.beginSetup();
+    await settle();
+    o.beginLive();
+    while (o.currentStats.shots < 10) {
+      now = now.add(const Duration(seconds: 2));
+      await settle(50);
+    }
+    expect(lastScores, hasLength(1),
+        reason: 'identical fixture copies must score identically');
+    // Clear the rate-limiter window so the queued milestone drains.
+    now = now.add(const Duration(seconds: 7));
+    coach.onSwingEnd();
+    await settle();
+
+    // Identical scores → flat trend → one of the steady check-in lines,
+    // with the measured average substituted in.
+    final expected = [
+      for (final v in bank.variantsFor('checkin:steady'))
+        v.replaceAll('{avg}', '$avgAt10'),
+    ];
+    expect(engine.spoken.last, isIn(expected));
+    final stats = o.currentStats;
+    expect(stats.recentScores, hasLength(10));
+    expect(stats.strokeCounts['forehand'], 10);
     await o.end();
     await o.dispose();
   });
