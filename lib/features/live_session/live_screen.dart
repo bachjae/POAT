@@ -84,11 +84,14 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
 
   void _onShot(ShotEvent event) {
     // Normalized wrist coords (torso units, hip origin) → rough view-space
-    // fractions for the trail overlay.
+    // fractions for the trail overlay; mirrored to match a selfie preview.
+    final mirror =
+        ref.read(activeSessionProvider)?.cameraSource?.isFrontCamera ?? false;
+    final xSign = mirror ? -0.12 : 0.12;
     setState(() {
       _trail = [
         for (final p in event.wristTrail)
-          Offset(0.5 + p[0] * 0.12, 0.55 - p[1] * 0.18),
+          Offset(0.5 + p[0] * xSign, 0.55 - p[1] * 0.18),
       ];
       _trailAt = DateTime.now();
     });
@@ -141,6 +144,7 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
               frame: _lastFrame,
               sourceWidth: source!.lastSourceSize!.width,
               sourceHeight: source.lastSourceSize!.height,
+              mirror: source.isFrontCamera,
             ),
           if (!paused && _trail.length > 1) WristTrail(points: _trail),
           if (session?.cameraSource?.thermalFallbackActive ?? false)

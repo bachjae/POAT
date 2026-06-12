@@ -191,12 +191,15 @@ class ActiveSessionNotifier extends Notifier<ActiveSession?> {
     final skillTier = await repository.getSetting('skill_tier');
     final leftHanded =
         (await repository.getSetting('left_handed')) == 'true';
+    final useFrontCamera =
+        (await repository.getSetting('use_front_camera')) == 'true';
 
     final engine = FlutterTtsEngine();
     await engine.configure(
         pitch: bank.personality.pitch, rate: bank.personality.rate);
     final coach = TtsCoach(engine, CueRateLimiter());
-    final poseSource = CameraPoseSource();
+    final poseSource =
+        CameraPoseSource(preferFrontCamera: useFrontCamera);
     final orchestrator = SessionOrchestrator(
       poseSource: poseSource,
       coach: coach,

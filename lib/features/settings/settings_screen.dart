@@ -27,6 +27,7 @@ class SettingsScreen extends ConsumerWidget {
     final brain = ref.watch(brainStatusProvider);
     final tier = ref.watch(_settingProvider('skill_tier'));
     final leftHanded = ref.watch(_settingProvider('left_handed'));
+    final frontCamera = ref.watch(_settingProvider('use_front_camera'));
 
     return Scaffold(
       appBar: AppBar(title: const Text('PROFILE')),
@@ -88,6 +89,26 @@ class SettingsScreen extends ConsumerWidget {
                     .read(repositoryProvider)
                     .setSetting('left_handed', '$v');
                 ref.invalidate(_settingProvider('left_handed'));
+              },
+            ),
+          ),
+          frontCamera.when(
+            loading: () => const SizedBox.shrink(),
+            error: (_, _) => const SizedBox.shrink(),
+            data: (value) => SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Use selfie camera', style: RcType.body),
+              subtitle: const Text(
+                  'Face the screen so you can watch what the app detects. '
+                  'You can also flip cameras on the setup screen.',
+                  style: RcType.caption),
+              activeTrackColor: RcColors.ball,
+              value: value == 'true',
+              onChanged: (v) async {
+                await ref
+                    .read(repositoryProvider)
+                    .setSetting('use_front_camera', '$v');
+                ref.invalidate(_settingProvider('use_front_camera'));
               },
             ),
           ),

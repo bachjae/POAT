@@ -27,25 +27,31 @@ class SkeletonOverlay extends StatelessWidget {
     required this.frame,
     required this.sourceWidth,
     required this.sourceHeight,
+    this.mirror = false,
   });
 
   final PoseFrame? frame;
   final int sourceWidth;
   final int sourceHeight;
 
+  /// True for the selfie camera: its preview is mirrored, while keypoints
+  /// are in unmirrored sensor space.
+  final bool mirror;
+
   @override
   Widget build(BuildContext context) => CustomPaint(
-        painter: _SkeletonPainter(frame, sourceWidth, sourceHeight),
+        painter: _SkeletonPainter(frame, sourceWidth, sourceHeight, mirror),
         size: Size.infinite,
       );
 }
 
 class _SkeletonPainter extends CustomPainter {
-  _SkeletonPainter(this.frame, this.sourceWidth, this.sourceHeight);
+  _SkeletonPainter(this.frame, this.sourceWidth, this.sourceHeight, this.mirror);
 
   final PoseFrame? frame;
   final int sourceWidth;
   final int sourceHeight;
+  final bool mirror;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -58,8 +64,9 @@ class _SkeletonPainter extends CustomPainter {
     Offset? mapped(int i) {
       final p = f.keypoints[i];
       if (p[2] < kMinKeypointConf) return null;
+      final x = mirror ? sourceWidth - p[0] : p[0];
       return Offset(
-          p[0] / sourceWidth * size.width, p[1] / sourceHeight * size.height);
+          x / sourceWidth * size.width, p[1] / sourceHeight * size.height);
     }
 
     for (final (a, b) in _bones) {
@@ -76,5 +83,6 @@ class _SkeletonPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_SkeletonPainter old) => old.frame != frame;
+  bool shouldRepaint(_SkeletonPainter old) =>
+      old.frame != frame || old.mirror != mirror;
 }

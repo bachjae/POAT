@@ -77,6 +77,17 @@ class _CameraSetupScreenState extends ConsumerState<CameraSetupScreen> {
     super.dispose();
   }
 
+  /// Flips back ⇄ selfie and remembers the choice for future sessions.
+  Future<void> _switchCamera() async {
+    final source = _session?.cameraSource;
+    if (source == null) return;
+    await source.switchCamera();
+    await ref
+        .read(repositoryProvider)
+        .setSetting('use_front_camera', '${source.isFrontCamera}');
+    if (mounted) setState(() {});
+  }
+
   Future<void> _close() async {
     // Reset orientation BEFORE popping so the previous screen never
     // briefly renders in landscape (causes RenderFlex overflow).
@@ -114,18 +125,28 @@ class _CameraSetupScreenState extends ConsumerState<CameraSetupScreen> {
               frame: _lastFrame,
               sourceWidth: source!.lastSourceSize!.width,
               sourceHeight: source.lastSourceSize!.height,
+              mirror: source.isFrontCamera,
             ),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  Align(
-                    alignment: Alignment.topLeft,
-                    child: IconButton(
-                      icon: const Icon(Icons.close, color: RcColors.court),
-                      onPressed: _close,
-                    ),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.close, color: RcColors.court),
+                        onPressed: _close,
+                      ),
+                      const Spacer(),
+                      if (source != null && source.canSwitchCamera)
+                        IconButton(
+                          tooltip: 'Switch camera',
+                          icon: const Icon(Icons.cameraswitch_outlined,
+                              color: RcColors.court),
+                          onPressed: _switchCamera,
+                        ),
+                    ],
                   ),
                   const Spacer(),
                   RcStatusChip(
