@@ -21,6 +21,8 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../platform/backup_exclusion.dart';
+
 /// Lifecycle of the on-device model file.
 enum BrainStatus {
   /// No usable model file (no chunks bundled, or not yet reassembled).
@@ -42,8 +44,17 @@ const String kModelFileName = 'gemma_e2b.litertlm';
 /// Marker written next to the model on successful preparation.
 const String kModelMetaFileName = 'gemma_e2b.meta';
 
+/// Pro model (Gemma 4 E4B) file name — imported by the user from a file.
+const String kProModelFileName = 'gemma_e4b.litertlm';
+
+/// Marker written next to the pro model on successful import.
+const String kProModelMetaFileName = 'gemma_e4b.meta';
+
 /// Gemma 4 E2B needs >= 6 GB devices; below that the app stays Lite.
 const int kMinRamBytes = 6 * 1024 * 1024 * 1024;
+
+/// Gemma 4 E4B (Pro) needs >= 8 GB RAM.
+const int kMinProRamBytes = 8 * 1024 * 1024 * 1024;
 
 /// Asset key prefix for the bundled chunks (suffix is the chunk index).
 const String kChunkAssetPrefix = 'assets/models/gemma_e2b.chunk';
@@ -141,15 +152,15 @@ class ModelManager {
   bool _failed = false;
   bool _liteOnly = false;
 
-  /// Absolute path of the reassembled model file.
-  ///
-  /// TODO(ios): exclude this file from iCloud backup. Requires a platform
-  /// channel setting `NSURLIsExcludedFromBackupKey` on the file URL
-  /// (`URLResourceValues.isExcludedFromBackup = true`) right after the
-  /// first successful [prepare]; there is no Dart-side API for it.
+  /// Absolute path of the reassembled bundled (E2B) model file.
   String get modelFilePath => '${_targetDir.path}/$kModelFileName';
 
   String get _metaFilePath => '${_targetDir.path}/$kModelMetaFileName';
+
+  /// Absolute path of the imported Pro (E4B) model file.
+  String get proModelFilePath => '${_targetDir.path}/$kProModelFileName';
+
+  String get _proMetaFilePath => '${_targetDir.path}/$kProModelMetaFileName';
 
   /// True when the Coach Brain must not run: no model bundled, or the
   /// device has < 6 GB RAM (Gemma 4 E2B requirement). Recomputed by
@@ -181,9 +192,13 @@ class ModelManager {
 
   /// True when the success marker exists and the model file matches its
   /// recorded size (full re-hash on every launch would cost ~2.6 GB of I/O).
-  Future<bool> _markerMatchesFile() async {
-    final meta = File(_metaFilePath);
-    final model = File(modelFilePath);
+  /// Uses [metaPath]/[modelPath] overrides when provided (for the Pro model).
+  Future<bool> _markerMatchesFile([
+    String? modelPath,
+    String? metaPath,
+  ]) async {
+    final meta = File(metaPath ?? _metaFilePath);
+    final model = File(modelPath ?? modelFilePath);
     if (!await meta.exists() || !await model.exists()) return false;
     try {
       final json = jsonDecode(await meta.readAsString());
@@ -192,6 +207,60 @@ class ModelManager {
           json['size'] == await model.length();
     } on FormatException {
       return false;
+    }
+  }
+
+  /// Status of the imported Pro (Gemma 4 E4B) model.
+  Future<BrainStatus> get proStatus async {
+    if (await _markerMatchesFile(proModelFilePath, _proMetaFilePath)) {
+      return BrainStatus.ready;
+    }
+    return BrainStatus.absent;
+  }
+
+  /// Imports [source] as the Pro model (Gemma 4 E4B) into the target dir.
+  /// RAM-gated at 8 GB. Emits progress 0..1.
+  /// On success writes a `{size, sha256}` meta marker.
+  Stream<double> importProModel(File source) async* {
+    final ram = await _deviceRamBytes?.call();
+    if (ram != null && ram < kMinProRamBytes) {
+      throw StateError(
+          'Pro model requires at least 8 GB RAM; this device has '
+          '${(ram / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB.');
+    }
+    yield 0.0;
+    await _targetDir.create(recursive: true);
+    final dest = File(proModelFilePath);
+    IOSink? out;
+    try {
+      out = dest.openWrite();
+      final digestOut = _DigestCapture();
+      final hashSink = sha256.startChunkedConversion(digestOut);
+      final sourceSize = await source.length();
+      var written = 0;
+      await for (final chunk in source.openRead()) {
+        out.add(chunk);
+        hashSink.add(chunk);
+        written += chunk.length;
+        yield sourceSize > 0 ? written / sourceSize : 0.0;
+      }
+      await out.flush();
+      await out.close();
+      out = null;
+      hashSink.close();
+      final actual = digestOut.digest.toString();
+      await File(_proMetaFilePath)
+          .writeAsString(jsonEncode({'size': written, 'sha256': actual}));
+      try {
+        await BackupExclusion.excludeFromBackup(proModelFilePath);
+      } catch (_) {}
+      yield 1.0;
+    } catch (_) {
+      await out?.close();
+      if (await dest.exists()) await dest.delete();
+      final meta = File(_proMetaFilePath);
+      if (await meta.exists()) await meta.delete();
+      rethrow;
     }
   }
 
@@ -256,6 +325,13 @@ class ModelManager {
 
       await File(_metaFilePath)
           .writeAsString(jsonEncode({'size': size, 'sha256': actual}));
+      // Exclude the large model file from iCloud backup on iOS.
+      try {
+        await BackupExclusion.excludeFromBackup(modelFilePath);
+      } catch (_) {
+        // Swallow MissingPluginException in test environments; the attribute
+        // persists on the real filesystem once set successfully.
+      }
       yield 1.0;
     } catch (_) {
       _failed = true;

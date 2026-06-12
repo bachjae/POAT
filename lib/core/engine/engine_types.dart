@@ -122,12 +122,18 @@ class ShotWindow {
     required this.peak,
     required this.end,
     required this.peakSpeed,
+    this.classificationConf = 1.0,
   });
 
   final int start;
   final int peak;
   final int end;
   final double peakSpeed;
+
+  /// Confidence in the stroke-type label (0–1). Low values (<0.45) on
+  /// forehand/backhand indicate the side-view wrist signal was ambiguous
+  /// and the stroke was downgraded to footwork cues.
+  final double classificationConf;
 }
 
 class ShotPhases {
@@ -136,12 +142,17 @@ class ShotPhases {
     required this.backswing,
     required this.contact,
     required this.followEnd,
+    this.tossFrame,
   });
 
   final int prep;
   final int backswing;
   final int contact;
   final int followEnd;
+
+  /// Serve only: buffer index where the tossing arm reaches maximum height
+  /// relative to the racket arm (bimanual wrist divergence peak).
+  final int? tossFrame;
 }
 
 class MetricDeviation {

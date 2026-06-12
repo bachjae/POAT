@@ -60,12 +60,17 @@ final brainStatusProvider = FutureProvider<BrainStatus>((ref) async {
 });
 
 /// Null in Lite mode (model absent / RAM gate / not yet prepared).
+/// Prefers the imported Pro model when available.
 final llmRunnerProvider = FutureProvider<LlmRunner?>((ref) async {
   final manager = await ref.watch(modelManagerProvider.future);
-  if (await manager.status != BrainStatus.ready || manager.liteOnly) {
-    return null;
-  }
-  final runner = GemmaLlmRunner(modelManager: manager);
+  final proReady = (await manager.proStatus) == BrainStatus.ready;
+  final bundledReady =
+      (await manager.status) == BrainStatus.ready && !manager.liteOnly;
+  if (!proReady && !bundledReady) return null;
+  final runner = GemmaLlmRunner(
+    modelManager: manager,
+    modelPathOverride: proReady ? manager.proModelFilePath : null,
+  );
   ref.onDispose(runner.dispose);
   return runner;
 });
@@ -75,14 +80,39 @@ final phraseBankProvider = FutureProvider.family<PhraseBank, String>(
 
 /// Draft configuration assembled across the setup screens.
 class SessionDraft {
-  const SessionDraft({this.type = 'full', this.coachId = 'maya'});
+  const SessionDraft({
+    this.type = 'full',
+    this.coachId = 'maya',
+    this.strokeSequence = const [],
+    this.goalMetricId,
+  });
 
   final String type;
   final String coachId;
 
-  SessionDraft copyWith({String? type, String? coachId}) =>
-      SessionDraft(type: type ?? this.type, coachId: coachId ?? this.coachId);
+  /// Ordered list of up to 3 strokes for multi-stroke sessions. Empty =
+  /// single-stroke (uses [type]).
+  final List<String> strokeSequence;
+
+  /// Optional goal metric to pre-seed the focus manager.
+  final String? goalMetricId;
+
+  SessionDraft copyWith({
+    String? type,
+    String? coachId,
+    List<String>? strokeSequence,
+    Object? goalMetricId = _sentinel,
+  }) =>
+      SessionDraft(
+        type: type ?? this.type,
+        coachId: coachId ?? this.coachId,
+        strokeSequence: strokeSequence ?? this.strokeSequence,
+        goalMetricId:
+            goalMetricId == _sentinel ? this.goalMetricId : goalMetricId as String?,
+      );
 }
+
+const _sentinel = Object();
 
 class SessionDraftNotifier extends Notifier<SessionDraft> {
   @override
@@ -91,6 +121,28 @@ class SessionDraftNotifier extends Notifier<SessionDraft> {
   void setType(String type) => state = state.copyWith(type: type);
 
   void setCoach(String coachId) => state = state.copyWith(coachId: coachId);
+
+  /// Toggles [stroke] in the sequence (max 3). Single-stroke drills ('full',
+  /// 'footwork') are mutually exclusive with multi-stroke sequences.
+  void toggleStroke(String stroke) {
+    final current = List<String>.from(state.strokeSequence);
+    if (current.contains(stroke)) {
+      current.remove(stroke);
+      final newType = current.isEmpty ? state.type : current.first;
+      state = state.copyWith(strokeSequence: current, type: newType);
+    } else {
+      if (stroke == 'full' || stroke == 'footwork') {
+        state = state.copyWith(type: stroke, strokeSequence: []);
+      } else if (current.length < 3) {
+        current.add(stroke);
+        state = state.copyWith(
+            strokeSequence: current, type: current.first);
+      }
+    }
+  }
+
+  void setGoalMetricId(String? metricId) =>
+      state = state.copyWith(goalMetricId: metricId);
 }
 
 final sessionDraftProvider =
@@ -157,6 +209,8 @@ class ActiveSessionNotifier extends Notifier<ActiveSession?> {
         coachId: draft.coachId,
         skillTier: skillTier,
         leftHanded: leftHanded,
+        strokeSequence: draft.strokeSequence,
+        goalMetricId: draft.goalMetricId,
       ),
       brain: brain,
       prompts: prompts,

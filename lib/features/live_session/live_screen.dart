@@ -41,6 +41,7 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
   late final DateTime _startedAt;
   Timer? _ticker;
   final List<StreamSubscription<Object?>> _subs = [];
+  final List<Map<String, dynamic>> _highlights = [];
 
   @override
   void initState() {
@@ -107,7 +108,7 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
       if (mounted) context.go('/home');
       return;
     }
-    final result = await session.orchestrator.end();
+    final result = await session.orchestrator.end(highlights: _highlights);
     await ref.read(activeSessionProvider.notifier).stop();
     await WakelockPlus.disable();
     await SystemChrome.setPreferredOrientations(DeviceOrientation.values);
@@ -171,6 +172,23 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
                           final o = session?.orchestrator;
                           if (o == null) return;
                           paused ? o.resume() : o.pause();
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.bookmark_border,
+                            color: RcColors.court),
+                        onPressed: () {
+                          final offsetMs = DateTime.now()
+                              .difference(_startedAt)
+                              .inMilliseconds;
+                          setState(() {
+                            _highlights.add({
+                              'tOffsetMs': offsetMs,
+                              'shotIndex':
+                                  session?.orchestrator.currentStats.shots ?? 0,
+                            });
+                          });
+                          HapticFeedback.lightImpact();
                         },
                       ),
                       IconButton(

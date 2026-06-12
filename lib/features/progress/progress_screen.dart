@@ -32,6 +32,14 @@ final _trendProvider = FutureProvider.family<
     List<({DateTime weekStart, double avgScore})>,
     String>((ref, stroke) => ref.watch(repositoryProvider).trendFor(stroke));
 
+final _metricTrendProvider = FutureProvider.family<
+    List<({String deviationId, double frequency})>,
+    String>((ref, stroke) =>
+    ref.watch(repositoryProvider).metricTrendFor(stroke));
+
+final _activeGoalsProvider = FutureProvider<List<Goal>>(
+    (ref) => ref.watch(repositoryProvider).getActiveGoals());
+
 final _sessionsProvider = StreamProvider<List<Session>>(
     (ref) => ref.watch(repositoryProvider).watchRecentSessions(limit: 50));
 
@@ -42,7 +50,9 @@ class ProgressScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final stroke = ref.watch(_strokeFilterProvider);
     final trend = ref.watch(_trendProvider(stroke));
+    final metricTrend = ref.watch(_metricTrendProvider(stroke));
     final sessions = ref.watch(_sessionsProvider);
+    final activeGoals = ref.watch(_activeGoalsProvider);
 
     return Scaffold(
       body: SafeArea(
@@ -88,6 +98,35 @@ class ProgressScreen extends ConsumerWidget {
               const SizedBox(height: 16),
               const Divider(),
               const SizedBox(height: 12),
+              const Text('METRIC TRENDS', style: RcType.caption),
+              const SizedBox(height: 8),
+              metricTrend.when(
+                loading: () => const SizedBox.shrink(),
+                error: (_, _) => const SizedBox.shrink(),
+                data: (items) => items.isEmpty
+                    ? const SizedBox.shrink()
+                    : _MetricTrendBars(items: items),
+              ),
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 12),
+              activeGoals.when(
+                loading: () => const SizedBox.shrink(),
+                error: (_, _) => const SizedBox.shrink(),
+                data: (goals) => goals.isEmpty
+                    ? const SizedBox.shrink()
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Divider(),
+                          const SizedBox(height: 12),
+                          const Text('GOALS', style: RcType.caption),
+                          const SizedBox(height: 8),
+                          _GoalsSection(goals: goals),
+                          const SizedBox(height: 12),
+                        ],
+                      ),
+              ),
               const Text('SESSIONS', style: RcType.caption),
               const SizedBox(height: 4),
               Expanded(
@@ -205,6 +244,143 @@ class _TrendChart extends StatelessWidget {
                 strokeWidth: 1,
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Horizontal bar chart showing top deviation frequencies for the selected
+/// stroke. Bars are colored by severity:
+/// ≥ 0.4 → persistent weakness (clay), < 0.15 → rarely an issue (ball).
+class _MetricTrendBars extends StatelessWidget {
+  const _MetricTrendBars({required this.items});
+
+  final List<({String deviationId, double frequency})> items;
+
+  Color _barColor(double freq) {
+    if (freq >= 0.4) return RcColors.clay;
+    if (freq <= 0.15) return RcColors.ball;
+    return RcColors.net;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (final item in items.take(6))
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 140,
+                  child: Text(
+                    item.deviationId.replaceAll('_', ' '),
+                    style: RcType.stat.copyWith(
+                        fontSize: 11, color: RcColors.lineDim),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: LinearProgressIndicator(
+                      value: item.frequency.clamp(0.0, 1.0),
+                      backgroundColor: RcColors.net.withValues(alpha: 0.3),
+                      color: _barColor(item.frequency),
+                      minHeight: 8,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 36,
+                  child: Text(
+                    '${(item.frequency * 100).round()}%',
+                    style: RcType.stat.copyWith(
+                        fontSize: 11, color: RcColors.lineDim),
+                    textAlign: TextAlign.end,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _GoalsSection extends ConsumerWidget {
+  const _GoalsSection({required this.goals});
+
+  final List<Goal> goals;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Column(
+      children: [
+        for (final goal in goals)
+          _GoalRow(
+            goal: goal,
+            onDeactivate: () async {
+              await ref.read(repositoryProvider).deactivateGoal(goal.id);
+              ref.invalidate(_activeGoalsProvider);
+            },
+          ),
+      ],
+    );
+  }
+}
+
+final _goalRateProvider =
+    FutureProvider.family<double?, ({String metricId, String stroke})>(
+  (ref, key) =>
+      ref.watch(repositoryProvider).goalCurrentRate(key.metricId, key.stroke),
+);
+
+class _GoalRow extends ConsumerWidget {
+  const _GoalRow({required this.goal, required this.onDeactivate});
+
+  final Goal goal;
+  final VoidCallback onDeactivate;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final rate = ref.watch(
+        _goalRateProvider((metricId: goal.metricId, stroke: goal.stroke)));
+    final current = rate.value;
+    final label = goal.metricId.replaceAll('_', ' ');
+    final strokeLabel =
+        goal.stroke[0].toUpperCase() + goal.stroke.substring(1);
+    final targetPct = '${(goal.targetRate * 100).round()}%';
+    final currentPct =
+        current != null ? '${(current * 100).round()}%' : '–';
+    final onTrack = current != null && current <= goal.targetRate;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('$label · $strokeLabel', style: RcType.body),
+                Text(
+                  'Current: $currentPct  Target: ≤$targetPct',
+                  style: RcType.caption.copyWith(
+                      color: onTrack ? RcColors.ball : RcColors.clay),
+                ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: onDeactivate,
+            child:
+                const Icon(Icons.close, size: 16, color: RcColors.lineDim),
           ),
         ],
       ),

@@ -9,6 +9,9 @@ import '../engine/engine_types.dart';
 
 /// Template keys expected in the constructor map (= asset base names).
 const String kShotCueTemplate = 'shot_cue';
+const String kShotCueServeTemplate = 'shot_cue_serve';
+const String kShotCueBackhandTemplate = 'shot_cue_backhand';
+const String kShotCueVolleyTemplate = 'shot_cue_volley';
 const String kSessionSummaryTemplate = 'session_summary';
 const String kChatSystemTemplate = 'chat_system';
 
@@ -21,22 +24,42 @@ class PromptBuilder {
   PromptBuilder({required Map<String, String> templates})
       : _templates = Map.unmodifiable(templates);
 
-  /// Loads the three templates through an injected asset reader
+  /// Loads the three required templates and any optional stroke-specific
+  /// overrides through an injected asset reader
   /// (production: `rootBundle.loadString`; tests: `dart:io`).
   static Future<PromptBuilder> load(
       Future<String> Function(String) loadAsset) async {
-    return PromptBuilder(templates: {
+    Future<String?> tryLoad(String path) async {
+      try {
+        return await loadAsset(path);
+      } catch (_) {
+        return null;
+      }
+    }
+
+    final templates = <String, String>{
       kShotCueTemplate: await loadAsset('assets/prompts/shot_cue.txt'),
       kSessionSummaryTemplate:
           await loadAsset('assets/prompts/session_summary.txt'),
       kChatSystemTemplate: await loadAsset('assets/prompts/chat_system.txt'),
-    });
+    };
+    final serve = await tryLoad('assets/prompts/shot_cue_serve.txt');
+    final backhand = await tryLoad('assets/prompts/shot_cue_backhand.txt');
+    final volley = await tryLoad('assets/prompts/shot_cue_volley.txt');
+    if (serve != null) templates[kShotCueServeTemplate] = serve;
+    if (backhand != null) templates[kShotCueBackhandTemplate] = backhand;
+    if (volley != null) templates[kShotCueVolleyTemplate] = volley;
+    return PromptBuilder(templates: templates);
   }
 
   final Map<String, String> _templates;
 
   /// Live shot-cue prompt. [recurrence]: metric id → occurrences in the
   /// last 10 shots; [trend]: average score delta over the last 10 shots.
+  /// Selects a stroke-specific template when available, falling back to the
+  /// generic template. [classificationConf] and [viewConfidence] are injected
+  /// into stroke-specific templates that expose those slots.
+  /// [sessionFocus] and [goalMetric] add context lines when non-null.
   String shotCue({
     required String personalityName,
     required String personalityStyle,
@@ -50,8 +73,12 @@ class PromptBuilder {
     required int shotNumber,
     required double trend,
     required List<String> recentCues,
+    double classificationConf = 1.0,
+    double viewConfidence = 1.0,
+    String? sessionFocus,
+    String? goalMetric,
   }) {
-    return _render(kShotCueTemplate, {
+    return _render(_strokeTemplateKey(stroke), {
       'personality_name': personalityName,
       'personality_style': personalityStyle,
       'skill_tier': skillTier,
@@ -63,7 +90,24 @@ class PromptBuilder {
       'shot_number': '$shotNumber',
       'trend': _signed(trend),
       'recent_cues': recentCues.isEmpty ? 'none' : recentCues.join('; '),
+      'classification_conf': classificationConf.toStringAsFixed(2),
+      'view_confidence': viewConfidence.toStringAsFixed(2),
+      'session_focus':
+          sessionFocus != null ? ' Session focus: $sessionFocus.' : '',
+      'goal_metric': goalMetric != null ? ' Goal: $goalMetric.' : '',
     });
+  }
+
+  /// Returns the best available template key for [stroke].
+  String _strokeTemplateKey(String stroke) {
+    final key = switch (stroke) {
+      'serve' => kShotCueServeTemplate,
+      'backhand' => kShotCueBackhandTemplate,
+      'volley' => kShotCueVolleyTemplate,
+      _ => null,
+    };
+    if (key != null && (_templates[key]?.isNotEmpty ?? false)) return key;
+    return kShotCueTemplate;
   }
 
   /// Post-session debrief prompt. [recurringDeviations] order is preserved —

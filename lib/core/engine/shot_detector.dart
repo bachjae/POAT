@@ -6,6 +6,7 @@ library;
 import 'dart:math' as math;
 
 import 'engine_types.dart';
+import 'normalizer.dart';
 
 class TimedKeypoints {
   const TimedKeypoints({required this.timestampMs, required this.keypoints});
@@ -37,6 +38,51 @@ List<double> wristSpeeds(List<TimedKeypoints> frames) {
         _dist(a.keypoints[Kp.rightWrist], b.keypoints[Kp.rightWrist]) / dt);
   }
   return speeds;
+}
+
+/// Validates a candidate swing window against kinematic sanity checks.
+///
+/// Rejects noise glitches and dropped-frame artifacts:
+/// 1. Duration must be 400–2500 ms.
+/// 2. Speed at peak±3 frames must be < 85% of peak speed (apex shape).
+/// 3. Post-peak mean / pre-peak mean must be in [0.05, 0.95] — real swings
+///    decelerate sharply; flat-speed glitches maintain speed after "peak".
+bool _validateShotWindow(
+  List<TimedKeypoints> frames,
+  ShotWindow shot,
+  List<double> speeds,
+) {
+  final s = shot.start, p = shot.peak, e = shot.end;
+
+  // Rule 1: duration gate.
+  final durationMs = frames[e].timestampMs - frames[s].timestampMs;
+  if (durationMs < 400 || durationMs > 2500) return false;
+
+  // Rule 2: apex shape — neighbors at ±3 frames must drop below 85% of peak.
+  final peakSpeed = speeds[p];
+  if (peakSpeed <= 0) return false;
+  final leftIdx = math.max(s, p - 3);
+  final rightIdx = math.min(e, p + 3);
+  if (speeds[leftIdx] >= 0.85 * peakSpeed) return false;
+  if (speeds[rightIdx] >= 0.85 * peakSpeed) return false;
+
+  // Rule 3: accel/decel ratio.
+  var preSum = 0.0, preCount = 0;
+  for (var i = s; i < p; i++) {
+    preSum += speeds[i];
+    preCount++;
+  }
+  var postSum = 0.0, postCount = 0;
+  for (var i = p + 1; i <= e; i++) {
+    postSum += speeds[i];
+    postCount++;
+  }
+  if (preCount > 0 && postCount > 0 && preSum > 0) {
+    final ratio = (postSum / postCount) / (preSum / preCount);
+    if (ratio < 0.05 || ratio > 0.95) return false;
+  }
+
+  return true;
 }
 
 /// Wrist-speed peaks above an adaptive threshold → candidate swing windows.
@@ -87,24 +133,41 @@ List<ShotWindow> detectShots(
     }
     i++;
   }
+  shots.removeWhere((shot) => !_validateShotWindow(frames, shot, speeds));
   return shots;
 }
 
 /// Decision rules over the swing window (frames normalized + mirrored).
-Stroke classifyShot(List<TimedKeypoints> frames, ShotWindow shot) {
+///
+/// Returns `(stroke, confidence)` where confidence (0–1) reflects how
+/// strongly the discriminating signal supports the label. Forehand/backhand
+/// labels with confidence below 0.45 are downgraded to [Stroke.footwork].
+///
+/// When [majorityView] is a side view, trunk-rotation direction during the
+/// prep-to-backswing phase is used instead of the wrist-X heuristic for
+/// forehand/backhand disambiguation (wrist-X collapses in side projection).
+(Stroke, double) classifyShot(
+  List<TimedKeypoints> frames,
+  ShotWindow shot, {
+  ViewBucket? majorityView,
+}) {
   final s = shot.start, p = shot.peak;
+  final windowLen = (p - s + 1).clamp(1, 1 << 30);
   final peakKp = frames[p].keypoints;
-  var bothUp = false;
+
+  var bothUpCount = 0;
   for (var i = s; i <= p; i++) {
     final kp = frames[i].keypoints;
     if (kp[Kp.leftWrist][1] > kp[Kp.leftShoulder][1] &&
         kp[Kp.rightWrist][1] > kp[Kp.rightShoulder][1]) {
-      bothUp = true;
-      break;
+      bothUpCount++;
     }
   }
   final overhead = peakKp[Kp.rightWrist][1] > peakKp[Kp.nose][1];
-  if (bothUp && overhead) return Stroke.serve;
+  if (bothUpCount > 0 && overhead) {
+    final serveConf = (bothUpCount / windowLen).clamp(0.0, 1.0);
+    return (Stroke.serve, serveConf);
+  }
 
   var minX = double.infinity, maxX = double.negativeInfinity;
   for (var i = s; i <= p; i++) {
@@ -112,11 +175,35 @@ Stroke classifyShot(List<TimedKeypoints> frames, ShotWindow shot) {
     if (x < minX) minX = x;
     if (x > maxX) maxX = x;
   }
-  if (maxX - minX < 0.9) return Stroke.volley;
+  final horizRange = maxX - minX;
+  if (horizRange < 0.9) {
+    final volleyConf = (1.0 - horizRange / 0.9).clamp(0.0, 1.0);
+    return (Stroke.volley, volleyConf);
+  }
 
   final bwI = backswingFrame(frames, s, p);
+
+  // Side views: trunk-rotation direction is more reliable than wrist-X
+  // position (which collapses in side projection).
+  if (majorityView?.isSide ?? false) {
+    final startSho = jointAngles(frames[s].keypoints).shoulderLineDeg;
+    final bwSho = jointAngles(frames[bwI].keypoints).shoulderLineDeg;
+    final delta = wrapDeg(bwSho - startSho);
+    // Positive delta → shoulders coil clockwise (overhead view) → forehand.
+    final sideConf = (delta.abs().clamp(0.0, 20.0) / 20.0);
+    final stroke = delta > 0 ? Stroke.forehand : Stroke.backhand;
+    if (sideConf < 0.25) return (Stroke.footwork, sideConf);
+    return (stroke, sideConf);
+  }
+
+  // Front / diagonal views: wrist-X backswing heuristic.
   final bwX = frames[bwI].keypoints[Kp.rightWrist][0];
-  return bwX >= 0.0 ? Stroke.forehand : Stroke.backhand;
+  final fbConf = (bwX.abs().clamp(0.0, 1.2) / 1.2);
+  final stroke = bwX >= 0.0 ? Stroke.forehand : Stroke.backhand;
+  // Low-confidence forehand/backhand in ambiguous side views; downgrade to
+  // footwork cues rather than coaching on a mislabelled stroke.
+  if (fbConf < 0.45) return (Stroke.footwork, fbConf);
+  return (stroke, fbConf);
 }
 
 /// Wrist rearmost point: min projection onto the swing direction at peak.

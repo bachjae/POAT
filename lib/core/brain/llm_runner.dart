@@ -61,9 +61,11 @@ class GemmaLlmRunner implements LlmRunner {
     required ModelManager modelManager,
     int contextTokens = 2048,
     PreferredBackend? preferredBackend,
+    String? modelPathOverride,
   })  : _modelManager = modelManager,
         _contextTokens = contextTokens,
-        _preferredBackend = preferredBackend;
+        _preferredBackend = preferredBackend,
+        _modelPathOverride = modelPathOverride;
 
   final ModelManager _modelManager;
 
@@ -73,6 +75,10 @@ class GemmaLlmRunner implements LlmRunner {
   /// session budget; cue/summary/chat prompts + 700 output fit in 2048).
   final int _contextTokens;
   final PreferredBackend? _preferredBackend;
+
+  /// When set, used instead of [ModelManager.modelFilePath] — allows the
+  /// Pro model path to be injected without subclassing.
+  final String? _modelPathOverride;
 
   static const int _topK = 40;
 
@@ -93,7 +99,7 @@ class GemmaLlmRunner implements LlmRunner {
     await FlutterGemma.installModel(
       modelType: ModelType.gemma4,
       fileType: ModelFileType.litertlm,
-    ).fromFile(_modelManager.modelFilePath).install();
+    ).fromFile(_modelPathOverride ?? _modelManager.modelFilePath).install();
     _model = await FlutterGemma.getActiveModel(
       maxTokens: _contextTokens,
       preferredBackend: _preferredBackend,

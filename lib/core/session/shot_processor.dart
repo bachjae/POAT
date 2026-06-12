@@ -30,6 +30,8 @@ class ShotEvent {
     required this.peakTimestampMs,
     required this.measured,
     required this.wristTrail,
+    this.classificationConf = 1.0,
+    this.viewConfidence = 1.0,
   });
 
   final Stroke stroke;
@@ -41,6 +43,14 @@ class ShotEvent {
   /// Normalized wrist positions across the swing window, for the live
   /// Rally Arc trail overlay ([x, y] in torso units).
   final List<List<double>> wristTrail;
+
+  /// How confidently the stroke label was assigned (0–1). Values below 0.45
+  /// caused a forehand/backhand to be downgraded to footwork cues.
+  final double classificationConf;
+
+  /// How reliable the camera angle is for biomechanics metrics (0–1).
+  /// Derived from the mean shoulder-width ratio across the shot window.
+  final double viewConfidence;
 }
 
 class FootworkEvent {
@@ -118,6 +128,7 @@ class ShotStreamProcessor {
   final List<TimedKeypoints> _buffer = [];
   final List<double> _rawHipX = [];
   final List<double> _torsos = [];
+  final List<double> _shoulderWidthRatios = [];
   final Map<String, int> _viewCounts = {};
   final List<String> _viewWindow = [];
 
@@ -183,6 +194,7 @@ class ShotStreamProcessor {
             2.0;
     _rawHipX.add(hipMidX);
     _torsos.add(n.torso);
+    _shoulderWidthRatios.add(n.shoulderWidthRatio);
     _viewWindow.add(n.view.id);
     _viewCounts[n.view.id] = (_viewCounts[n.view.id] ?? 0) + 1;
     if (_viewWindow.length > 90) {
@@ -198,6 +210,7 @@ class ShotStreamProcessor {
       _buffer.removeAt(0);
       _rawHipX.removeAt(0);
       _torsos.removeAt(0);
+      _shoulderWidthRatios.removeAt(0);
       if (_footworkStartIndex > 0) _footworkStartIndex--;
     }
 
@@ -250,7 +263,7 @@ class ShotStreamProcessor {
       if (shot.peak + _postWindowFrames > _buffer.length - 1) continue;
       _lastEmittedPeakTs = peakTs;
 
-      final stroke = classifyShot(_buffer, shot);
+      final (stroke, classificationConf) = classifyShot(_buffer, shot, majorityView: majorityView);
       final reference = referenceFor(stroke);
       final phases = segmentPhases(_buffer, shot, stroke);
       final address = jointAngles(_buffer[shot.start].keypoints);
@@ -265,12 +278,31 @@ class ShotStreamProcessor {
         view: view,
         peakTimestampMs: peakTs,
         measured: measured,
+        classificationConf: classificationConf,
+        viewConfidence: _computeViewConfidence(shot.start, shot.end),
         wristTrail: [
           for (var i = shot.start; i <= shot.end; i++)
             _buffer[i].keypoints[Kp.rightWrist],
         ],
       ));
     }
+  }
+
+  double _computeViewConfidence(int start, int end) {
+    if (_shoulderWidthRatios.isEmpty) return 0.75;
+    final s = start.clamp(0, _shoulderWidthRatios.length - 1);
+    final e = end.clamp(0, _shoulderWidthRatios.length - 1);
+    if (s > e) return 0.75;
+    var sum = 0.0;
+    for (var i = s; i <= e; i++) {
+      sum += _shoulderWidthRatios[i];
+    }
+    final mean = sum / (e - s + 1);
+    if (mean >= 0.75) return 0.9;
+    if (mean <= 0.45) return 0.85;
+    if (mean <= 0.60) return 0.6;
+    // 0.60–0.75: interpolate between 0.6 and 0.9
+    return 0.6 + (mean - 0.60) / (0.75 - 0.60) * 0.3;
   }
 
   void _maybeEmitFootworkWindow() {

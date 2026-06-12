@@ -8,6 +8,7 @@ library;
 
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
 import '../engine/cue_prioritizer.dart';
@@ -136,6 +137,7 @@ class TtsCoach {
 
   Future<void> _speakSystem(String text) async {
     await _engine.stop();
+    unawaited(HapticFeedback.mediumImpact());
     _emit(text, CoachUtteranceKind.system);
     _speaking = true;
     try {
@@ -156,6 +158,9 @@ class TtsCoach {
     _limiter.recordUtterance(now, metricId: next.metricId);
     if (next.kind == CoachUtteranceKind.filler) _lastFillerMs = now;
     _emit(next.text, next.kind);
+    if (next.kind == CoachUtteranceKind.cue) {
+      unawaited(HapticFeedback.lightImpact());
+    }
     _speaking = true;
     try {
       await _engine.speak(next.text);

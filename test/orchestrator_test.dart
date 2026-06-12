@@ -259,4 +259,126 @@ void main() {
     await o.end();
     await o.dispose();
   });
+
+  test('focus manager pre-seeded by goal appears in brain prompt', () async {
+    final brain = FakeLlmRunner(
+        fallbackResponse: 'turn those shoulders sooner stay smooth');
+    final promptsCapture = <String>[];
+    final capturingBrain = _CapturingLlmRunner(brain, promptsCapture);
+    final o = SessionOrchestrator(
+      poseSource: FixturePoseSource(
+          _vectorFrames('forehand_diagonal_q0.5_s12'),
+          loop: true),
+      coach: coach,
+      bank: bank,
+      references: references,
+      repository: repository,
+      catalog: catalog,
+      config: const SessionConfig(
+        type: 'forehand',
+        coachId: 'coach_k',
+        skillTier: 'intermediate',
+        goalMetricId: 'elbow_angle',
+      ),
+      brain: capturingBrain,
+      prompts: prompts,
+      validator: validator,
+      clock: () => now,
+      rng: math.Random(7),
+    );
+    await o.beginSetup();
+    await settle();
+    o.beginLive();
+    await settle(250);
+    expect(o.currentStats.shots, greaterThan(0));
+    expect(promptsCapture, isNotEmpty,
+        reason: 'brain should have been called at least once');
+    expect(promptsCapture.any((p) => p.contains('Goal: elbow_angle')), isTrue,
+        reason: 'goal metric injected into brain prompt');
+    await o.end();
+    await o.dispose();
+  });
+
+  test('two-stroke sequence transitions after 20 shots and announces', () async {
+    final twoShots = _vectorFrames('forehand_diagonal_q0.5_s12');
+    final o = SessionOrchestrator(
+      poseSource: FixturePoseSource(twoShots, loop: true),
+      coach: coach,
+      bank: bank,
+      references: references,
+      repository: repository,
+      catalog: catalog,
+      config: const SessionConfig(
+        type: 'forehand',
+        coachId: 'coach_k',
+        skillTier: 'intermediate',
+        strokeSequence: ['forehand', 'backhand'],
+      ),
+      clock: () => now,
+      rng: math.Random(11),
+    );
+    await o.beginSetup();
+    await settle();
+    o.beginLive();
+
+    // Drive shots until the transition fires (budget = 20).
+    while (o.currentStats.shots < 20) {
+      now = now.add(const Duration(seconds: 2));
+      await settle(50);
+    }
+    // One more settle to let the transition announcement queue.
+    await settle(20);
+
+    final spokenJoined = engine.spoken.join(' ');
+    expect(
+      spokenJoined,
+      anyOf(
+        contains('backhand'),
+        contains('Backhand'),
+      ),
+      reason: 'stroke_transition phrase announced with next stroke name',
+    );
+
+    final result = await o.end();
+    final stored = await repository.lastSession();
+    expect(jsonDecode(stored!.strokeSequence),
+        equals(['forehand', 'backhand']),
+        reason: 'sequence persisted in session row');
+    expect(result.sessionId, stored.id);
+    await o.dispose();
+  });
+}
+
+/// Wraps a FakeLlmRunner and captures all generated prompts.
+class _CapturingLlmRunner implements LlmRunner {
+  _CapturingLlmRunner(this._inner, this._captured);
+  final LlmRunner _inner;
+  final List<String> _captured;
+
+  @override
+  Future<bool> isAvailable() => _inner.isAvailable();
+
+  @override
+  Future<void> warmUp() => _inner.warmUp();
+
+  @override
+  Future<String> generate(String prompt,
+      {required int maxTokens,
+      double temperature = 0.4,
+      Duration? deadline}) {
+    _captured.add(prompt);
+    return _inner.generate(prompt,
+        maxTokens: maxTokens, temperature: temperature, deadline: deadline);
+  }
+
+  @override
+  Stream<String> generateStream(String prompt,
+      {required int maxTokens, double temperature = 0.4}) {
+    _captured.add(prompt);
+    return _inner.generateStream(prompt,
+        maxTokens: maxTokens, temperature: temperature);
+  }
+
+  @override
+  Future<void> dispose() => _inner.dispose();
 }

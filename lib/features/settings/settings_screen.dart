@@ -2,8 +2,13 @@
 /// handedness, privacy, delete-all.
 library;
 
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../app/providers.dart';
 import '../../app/theme.dart';
@@ -54,10 +59,11 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 4),
           const Text(
             'The brain ships inside the app and runs entirely on this '
-            'phone. A Pro model (Gemma 4 E4B) can be imported from a file '
-            'in a future update.',
+            'phone.',
             style: RcType.caption,
           ),
+          const SizedBox(height: 12),
+          _ProModelImporter(),
           const SizedBox(height: 20),
           const Hairline(),
           const SizedBox(height: 20),
@@ -98,6 +104,22 @@ class SettingsScreen extends ConsumerWidget {
             'this device.',
             style: RcType.body,
           ),
+          const SizedBox(height: 12),
+          RcOutlineButton(
+            label: 'Export session data (CSV)',
+            onPressed: () async {
+              final csv =
+                  await ref.read(repositoryProvider).exportSessionsCsv();
+              if (csv.isEmpty) return;
+              final dir = await getTemporaryDirectory();
+              final file = File('${dir.path}/rallycoach_sessions.csv');
+              await file.writeAsString(csv);
+              await Share.shareXFiles(
+                [XFile(file.path, mimeType: 'text/csv')],
+                subject: 'RallyCoach session data',
+              );
+            },
+          ),
           const SizedBox(height: 20),
           RcOutlineButton(
             label: 'Delete all data',
@@ -132,6 +154,103 @@ class SettingsScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ProModelImporter extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<_ProModelImporter> createState() => _ProModelImporterState();
+}
+
+class _ProModelImporterState extends ConsumerState<_ProModelImporter> {
+  double? _progress;
+  String? _error;
+
+  @override
+  Widget build(BuildContext context) {
+    final brainAsync = ref.watch(brainStatusProvider);
+    final managerAsync = ref.watch(modelManagerProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text('Pro model (Gemma 4 E4B)', style: RcType.body),
+            ),
+            managerAsync.when(
+              loading: () => const SizedBox.shrink(),
+              error: (_, _) => const SizedBox.shrink(),
+              data: (manager) => FutureBuilder<BrainStatus>(
+                future: manager.proStatus,
+                builder: (context, snap) => RcStatusChip(
+                  text: snap.data == BrainStatus.ready ? 'Ready' : 'Not installed',
+                  dotColor: snap.data == BrainStatus.ready
+                      ? RcColors.ball
+                      : RcColors.net,
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (_progress != null) ...[
+          const SizedBox(height: 8),
+          LinearProgressIndicator(
+            value: _progress,
+            color: RcColors.ball,
+            backgroundColor: RcColors.net,
+          ),
+          const SizedBox(height: 4),
+          Text('Importing… ${(_progress! * 100).round()}%',
+              style: RcType.caption),
+        ],
+        if (_error != null) ...[
+          const SizedBox(height: 4),
+          Text(_error!, style: RcType.caption.copyWith(color: RcColors.clay)),
+        ],
+        const SizedBox(height: 8),
+        RcOutlineButton(
+          label: 'Import Pro model (.litertlm)',
+          onPressed: _progress != null
+              ? null
+              : () async {
+                  setState(() {
+                    _error = null;
+                    _progress = 0;
+                  });
+                  try {
+                    final result = await FilePicker.platform.pickFiles(
+                      type: FileType.custom,
+                      allowedExtensions: ['litertlm'],
+                    );
+                    if (result == null || result.files.single.path == null) {
+                      setState(() => _progress = null);
+                      return;
+                    }
+                    final source = File(result.files.single.path!);
+                    final manager =
+                        await ref.read(modelManagerProvider.future);
+                    await for (final p in manager.importProModel(source)) {
+                      if (mounted) setState(() => _progress = p);
+                    }
+                    ref.invalidate(modelManagerProvider);
+                    ref.invalidate(brainStatusProvider);
+                    ref.invalidate(llmRunnerProvider);
+                  } catch (e) {
+                    if (mounted) {
+                      setState(() {
+                        _error = e.toString();
+                        _progress = null;
+                      });
+                    }
+                    return;
+                  }
+                  if (mounted) setState(() => _progress = null);
+                },
+        ),
+      ],
     );
   }
 }

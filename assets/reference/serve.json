@@ -40,6 +40,39 @@
               ],
               "cue_low": "tilt up into the toss more",
               "cue_high": "keep the tilt under control"
+            },
+            {
+              "id": "toss_height",
+              "ideal": [
+                0.6,
+                2.0
+              ],
+              "weight": 0.25,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "toss the ball higher \u2014 reach up on the release",
+              "cue_high": "toss slightly lower and in front"
+            },
+            {
+              "id": "wrist_divergence",
+              "ideal": [
+                0.2,
+                1.2
+              ],
+              "weight": 0.15,
+              "views": [
+                "front",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "separate the tossing arm from the racket arm earlier",
+              "cue_high": "keep the toss synchronized with the trophy position"
             }
           ]
         },
@@ -192,6 +225,39 @@
               ],
               "cue_low": "tilt up into the toss more",
               "cue_high": "keep the tilt under control"
+            },
+            {
+              "id": "toss_height",
+              "ideal": [
+                0.7,
+                1.9
+              ],
+              "weight": 0.25,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "toss the ball higher \u2014 reach up on the release",
+              "cue_high": "toss slightly lower and in front"
+            },
+            {
+              "id": "wrist_divergence",
+              "ideal": [
+                0.3,
+                1.1
+              ],
+              "weight": 0.15,
+              "views": [
+                "front",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "separate the tossing arm from the racket arm earlier",
+              "cue_high": "keep the toss synchronized with the trophy position"
             }
           ]
         },
@@ -344,6 +410,39 @@
               ],
               "cue_low": "tilt up into the toss more",
               "cue_high": "keep the tilt under control"
+            },
+            {
+              "id": "toss_height",
+              "ideal": [
+                0.8,
+                1.8
+              ],
+              "weight": 0.25,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "toss the ball higher \u2014 reach up on the release",
+              "cue_high": "toss slightly lower and in front"
+            },
+            {
+              "id": "wrist_divergence",
+              "ideal": [
+                0.35,
+                1.0
+              ],
+              "weight": 0.15,
+              "views": [
+                "front",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "separate the tossing arm from the racket arm earlier",
+              "cue_high": "keep the toss synchronized with the trophy position"
             }
           ]
         },

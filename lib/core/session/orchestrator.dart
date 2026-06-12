@@ -29,21 +29,53 @@ import 'summary_generator.dart';
 
 enum SessionPhase { idle, setup, calibrating, live, paused, ending, summary }
 
+/// Exponential moving average for the LLM generation deadline.
+/// Clamps between 2s and 7s; records each success and pushes toward 7s on
+/// timeout so the next shot isn't starved waiting on a slow model.
+class _AdaptiveDeadline {
+  _AdaptiveDeadline([double initialMs = 4000]) : _current = initialMs;
+  double _current;
+
+  Duration get value => Duration(milliseconds: _current.round());
+
+  void recordSuccess(int observedMs) {
+    _current = (_current * 0.7 + observedMs * 0.3).clamp(2000.0, 7000.0);
+  }
+
+  void onTimeout() {
+    _current = (_current * 0.7 + 7000.0 * 0.3).clamp(2000.0, 7000.0);
+  }
+}
+
 class SessionConfig {
   const SessionConfig({
     required this.type,
     required this.coachId,
     this.skillTier,
     this.leftHanded = false,
+    this.strokeSequence = const [],
+    this.goalMetricId,
   });
 
-  /// Stroke id or 'full'.
+  /// Primary stroke id or 'full'. For single-stroke sessions this is the
+  /// only stroke; for multi-stroke sessions it matches [strokeSequence.first].
   final String type;
   final String coachId;
 
   /// Null on the very first session — triggers the 10-shot calibration.
   final String? skillTier;
   final bool leftHanded;
+
+  /// Ordered list of stroke ids for multi-stroke sequencing (max 3). When
+  /// empty, [type] is used as a single-element sequence.
+  final List<String> strokeSequence;
+
+  /// When set, the orchestrator pre-seeds the focus manager with this metric.
+  final String? goalMetricId;
+
+  /// The effective ordered stroke list; never empty.
+  List<String> get effectiveSequence =>
+      strokeSequence.isNotEmpty ? strokeSequence : [type];
 }
 
 class LiveStats {
@@ -84,13 +116,17 @@ class SessionOrchestrator {
     math.Random? rng,
   })  : _clock = clock ?? DateTime.now,
         _rng = rng ?? math.Random() {
+    _deadline = _AdaptiveDeadline(brainDeadline.inMilliseconds.toDouble());
     _tier = config.skillTier ?? 'intermediate';
     _calibrating = config.skillTier == null;
     processor = ShotStreamProcessor(
       referenceFor: (stroke) => references.referenceFor(stroke, _tier),
       leftHanded: config.leftHanded,
-      footworkMode: config.type == Stroke.footwork.id,
+      footworkMode: config.effectiveSequence.first == Stroke.footwork.id,
     );
+    if (config.goalMetricId != null) {
+      _focusManager.setFocus(config.goalMetricId!);
+    }
   }
 
   final PoseSource poseSource;
@@ -105,7 +141,8 @@ class SessionOrchestrator {
   final LlmRunner? brain;
   final PromptBuilder? prompts;
   final CueValidator? validator;
-  final Duration brainDeadline;
+  final Duration brainDeadline; // initial value; runtime uses _deadline
+  late final _AdaptiveDeadline _deadline;
 
   late final ShotStreamProcessor processor;
   final DateTime Function() _clock;
@@ -134,6 +171,11 @@ class SessionOrchestrator {
   DateTime? _startedAt;
   DateTime? _lostSince;
   bool _userPaused = false;
+
+  final _focusManager = SessionFocusManager();
+  int _currentStrokeIndex = 0;
+  int _shotsInCurrentPhase = 0;
+  static const int _strokeBudget = 20;
 
   final List<StreamSubscription<Object?>> _subs = [];
 
@@ -254,7 +296,29 @@ class SessionOrchestrator {
       _setPhase(SessionPhase.live);
     }
 
+    if (config.effectiveSequence.length > 1) {
+      _shotsInCurrentPhase++;
+      if (_shotsInCurrentPhase >= _strokeBudget) {
+        _transitionToNextStroke();
+      }
+    }
+
     _speakForShot(event);
+  }
+
+  void _transitionToNextStroke() {
+    final seq = config.effectiveSequence;
+    if (_currentStrokeIndex >= seq.length - 1) return;
+    _currentStrokeIndex++;
+    _shotsInCurrentPhase = 0;
+    _focusManager.reset();
+    _recentCueTexts.clear();
+    final nextStroke = seq[_currentStrokeIndex];
+    final raw = bank.pick('system:stroke_transition', _rng);
+    coach.submit(
+      raw.replaceAll('{stroke}', nextStroke),
+      CoachUtteranceKind.system,
+    );
   }
 
   void _onFootworkWindow(FootworkEvent event) {
@@ -288,6 +352,9 @@ class SessionOrchestrator {
 
   void _speakForShot(ShotEvent event) {
     final deviations = event.score.deviations;
+    final recurrence = processor.recurrenceCounts();
+    final focusId = _focusManager.update(recurrence);
+
     if (deviations.isEmpty) {
       coach.submit(bank.pick(
           _rng.nextBool() ? 'encourage' : 'ack', _rng),
@@ -297,7 +364,8 @@ class SessionOrchestrator {
     final picked = pickCue(
       deviations,
       coach.suppressedMetricIds(),
-      processor.recurrenceCounts(),
+      recurrence,
+      focusId: focusId,
     );
     if (picked == null) {
       // Everything deviated was cued recently; acknowledge effort instead.
@@ -312,12 +380,14 @@ class SessionOrchestrator {
 
     final b = brain;
     if (b != null && prompts != null && validator != null) {
-      unawaited(_raceBrainCue(event, picked, cueCountAtSubmit));
+      unawaited(_raceBrainCue(event, picked, cueCountAtSubmit,
+          focusId: focusId));
     }
   }
 
   Future<void> _raceBrainCue(
-      ShotEvent event, MetricDeviation picked, int cueCountAtSubmit) async {
+      ShotEvent event, MetricDeviation picked, int cueCountAtSubmit,
+      {String? focusId}) async {
     try {
       if (!await brain!.isAvailable()) return;
       final trend = _scoreTrend();
@@ -326,7 +396,7 @@ class SessionOrchestrator {
         personalityStyle: bank.personality.style,
         skillTier: _tier,
         handedness: config.leftHanded ? 'left' : 'right',
-        sessionType: config.type,
+        sessionType: config.effectiveSequence[_currentStrokeIndex],
         stroke: event.stroke.id,
         score: event.score.score.round(),
         deviations: event.score.deviations.take(3).toList(),
@@ -334,9 +404,15 @@ class SessionOrchestrator {
         shotNumber: _shots.length,
         trend: trend,
         recentCues: List.of(_recentCueTexts),
+        classificationConf: event.classificationConf,
+        viewConfidence: event.viewConfidence,
+        sessionFocus: focusId,
+        goalMetric: config.goalMetricId,
       );
+      final sw = Stopwatch()..start();
       final reply = await brain!.generate(prompt,
-          maxTokens: 60, deadline: brainDeadline);
+          maxTokens: 60, deadline: _deadline.value);
+      _deadline.recordSuccess(sw.elapsedMilliseconds);
       final verdict = validator!.validate(
         reply,
         deviatedMetricIds: {for (final d in event.score.deviations) d.id},
@@ -346,9 +422,11 @@ class SessionOrchestrator {
       // Replace only while the rule cue is still queued; once spoken, a
       // second cue for the same shot would double-talk.
       if (_spokenCueCount > cueCountAtSubmit) return;
-      coach.submit(reply.trim(), CoachUtteranceKind.cue, metricId: picked.id);
-      _rememberCue(reply.trim());
+      coach.submit(verdict.acceptedCue, CoachUtteranceKind.cue,
+          metricId: picked.id);
+      _rememberCue(verdict.acceptedCue);
     } on TimeoutException {
+      _deadline.onTimeout();
       // Rule cue already queued — deadline elapsed, nothing to do.
     } catch (_) {
       // Brain errors never disturb the session.
@@ -370,7 +448,8 @@ class SessionOrchestrator {
   }
 
   /// Ends the session: flush, summarize, persist. Returns the stored id.
-  Future<SessionResult> end() async {
+  /// [highlights] is the list of bookmarked moments from the live screen.
+  Future<SessionResult> end({List<Map<String, dynamic>>? highlights}) async {
     _setPhase(SessionPhase.ending);
     coach.submit(
         bank.pick('system:session_end', _rng), CoachUtteranceKind.system);
@@ -387,9 +466,12 @@ class SessionOrchestrator {
 
     var headline = '';
     var encouragement = '';
+    var brainGood = <String>[];
+    var brainWorkOn = <String>[];
     final b = brain;
     if (b != null && prompts != null && _shots.isNotEmpty) {
-      (headline, encouragement) = await _brainSummary(summary, durationS);
+      (headline, encouragement, brainGood, brainWorkOn) =
+          await _brainSummary(summary, durationS);
     }
 
     final sessionId = await repository.insertSession(
@@ -399,14 +481,23 @@ class SessionOrchestrator {
       coachId: config.coachId,
       skillTier: _tier,
       overallScore: summary.overallScore,
-      summaryGood: jsonEncode(summary.strengths),
+      summaryGood:
+          jsonEncode(brainGood.isNotEmpty ? brainGood : summary.strengths),
       summaryImprove: jsonEncode([
-        for (final i in summary.improvements)
-          {'title': i.title, 'detail': i.detail, 'deviationId': i.deviationId},
+        for (var idx = 0; idx < summary.improvements.length; idx++)
+          {
+            'title': summary.improvements[idx].title,
+            'detail': idx < brainWorkOn.length
+                ? brainWorkOn[idx]
+                : summary.improvements[idx].detail,
+            'deviationId': summary.improvements[idx].deviationId,
+          },
       ]),
       drills: jsonEncode(summary.drillIds),
       headline: headline,
       encouragement: encouragement,
+      highlights: jsonEncode(highlights ?? []),
+      strokeSequence: jsonEncode(config.strokeSequence),
       shots: [
         for (final s in _shots)
           (
@@ -424,10 +515,10 @@ class SessionOrchestrator {
     return SessionResult(sessionId: sessionId, summary: summary);
   }
 
-  Future<(String, String)> _brainSummary(
+  Future<(String, String, List<String>, List<String>)> _brainSummary(
       SessionSummaryData summary, int durationS) async {
     try {
-      if (!await brain!.isAvailable()) return ('', '');
+      if (!await brain!.isAvailable()) return ('', '', [], []);
       final strokeAverages = <String, List<double>>{};
       for (final s in _shots) {
         strokeAverages.putIfAbsent(s.stroke.id, () => []).add(s.score.score);
@@ -459,13 +550,19 @@ class SessionOrchestrator {
           maxTokens: 700, deadline: const Duration(seconds: 20));
       final json = jsonDecode(
           reply.substring(reply.indexOf('{'), reply.lastIndexOf('}') + 1));
-      if (json is! Map<String, dynamic>) return ('', '');
+      if (json is! Map<String, dynamic>) return ('', '', [], []);
+      final brainGood =
+          (json['what_worked'] as List?)?.cast<String>() ?? <String>[];
+      final brainWorkOn =
+          (json['work_on'] as List?)?.cast<String>() ?? <String>[];
       return (
         (json['headline'] as String?) ?? '',
         (json['encouragement'] as String?) ?? '',
+        brainGood,
+        brainWorkOn,
       );
     } catch (_) {
-      return ('', ''); // Rule-based summary stands on its own.
+      return ('', '', [], []); // Rule-based summary stands on its own.
     }
   }
 
