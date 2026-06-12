@@ -150,6 +150,8 @@ class SessionOrchestrator {
       if (c.kind == CoachUtteranceKind.cue) _spokenCueCount++;
     }));
     _subs.add(processor.visibility.listen(_onVisibility));
+    _subs.add(processor.swinging.listen(
+        (active) => active ? coach.onSwingStart() : coach.onSwingEnd()));
     _subs.add(processor.shots.listen(_onShot));
     _subs.add(processor.footworkWindows.listen(_onFootworkWindow));
     _subs.add(poseSource.frames.listen(processor.feed));

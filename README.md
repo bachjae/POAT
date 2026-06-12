@@ -11,7 +11,14 @@ Android build ships **without the INTERNET permission** as proof.
 |---|---|---|
 | Live | MoveNet Thunder/Lightning (TFLite) + rule-based biomechanics engine (Dart) | Per-frame pose, shot detection, instant deterministic cues (<2.5s, always available — "Lite mode") |
 | Shot | **Gemma 4 E2B** (`.litertlm`, bundled in the APK) via flutter_gemma/LiteRT-LM | Contextual spoken cue per shot, racing a 4s deadline against the rule cue |
-| Session | Same Gemma model | Natural-language summary headline, encouragement, post-session "Ask your coach" chat |
+| Session | Same Gemma model — or the deterministic Lite coach when the model is absent | Natural-language summary headline, encouragement, post-session "Ask your coach" chat (Lite mode answers from the stored session facts via `lib/core/brain/lite_coach.dart`) |
+
+The camera path rotates each frame upright (sensor orientation vs device
+orientation), letterboxes it so the player is never stretched, and
+One-Euro-smooths the keypoints (`lib/core/pose/pose_smoother.dart`) before
+the engine sees them. Live shot-detection windows are specified in
+milliseconds and adapt to the measured frame rate, so thermal fps drops
+don't silently change detection behavior.
 
 Every LLM cue passes a **validator** (`lib/core/brain/cue_validator.dart`)
 before it is spoken: it must reference a metric that actually deviated,
@@ -65,7 +72,7 @@ airplane forever.
 
 ```bash
 flutter analyze                          # zero issues
-flutter test                             # 105 tests
+flutter test                             # 123 tests
 (cd python_lab && python3 validate_engine.py)  # engine math validation
 ```
 
@@ -86,6 +93,13 @@ python3 build_phrase_banks.py
 ```
 
 ## Known follow-ups (v1 scope notes)
+
+- **Kotlin Gradle Plugin deprecation**: the Android build warns that
+  `flutter_gemma`, `flutter_tts`, `large_file_handler`, `package_info_plus`,
+  `thermal` and `wakelock_plus` still apply the legacy Kotlin Gradle Plugin,
+  which future Flutter releases will reject. All six are already at their
+  latest pub versions; `android/gradle.properties` documents the migration
+  steps to take as soon as Built-in-Kotlin releases of those plugins land.
 
 - Reference ranges are encoded from published coaching literature and
   validated on synthetic kinematic fixtures; tuning against real labeled
