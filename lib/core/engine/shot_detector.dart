@@ -147,9 +147,20 @@ List<ShotWindow> detectShots(
 /// strongly the discriminating signal supports the label. Forehand/backhand
 /// labels with confidence below 0.45 are downgraded to [Stroke.footwork].
 ///
+/// Forehand/backhand is fundamentally a question of which side of the body
+/// the dominant arm loads on, which only reads correctly once the player's
+/// in-frame chirality is known: the wrist-X and trunk-rotation rules were
+/// authored for the engine's REFERENCE chirality (dominant shoulder on +x,
+/// i.e. the player seen from behind). A player FACING the camera appears
+/// horizontally flipped, which used to invert every forehand into a backhand.
+/// [_chiralitySign] detects that flip from the shoulder line and folds it out
+/// so the rules read the same regardless of which way the player faces.
+///
 /// When [majorityView] is a side view, trunk-rotation direction during the
-/// prep-to-backswing phase is used instead of the wrist-X heuristic for
-/// forehand/backhand disambiguation (wrist-X collapses in side projection).
+/// prep-to-backswing phase is used instead of the wrist-X heuristic (wrist-X
+/// collapses in side projection). A pure 2D side view carries no depth cue, so
+/// confidence is deliberately capped and weak signals fall back to footwork
+/// cues rather than committing to a label.
 (Stroke, double) classifyShot(
   List<TimedKeypoints> frames,
   ShotWindow shot, {
@@ -188,26 +199,76 @@ List<ShotWindow> detectShots(
   final bwI = backswingFrame(frames, s, p);
 
   // Side views: trunk-rotation direction is more reliable than wrist-X
-  // position (which collapses in side projection).
+  // position (which collapses in side projection). The shoulder line is
+  // smoothed first because it is the noisiest signal in a near-edge-on view.
   if (majorityView?.isSide ?? false) {
-    final startSho = jointAngles(frames[s].keypoints).shoulderLineDeg;
-    final bwSho = jointAngles(frames[bwI].keypoints).shoulderLineDeg;
-    final delta = wrapDeg(bwSho - startSho);
-    // Positive delta → shoulders coil clockwise (overhead view) → forehand.
-    final sideConf = (delta.abs().clamp(0.0, 20.0) / 20.0);
+    final startSho = _smoothedShoulderDeg(frames, s);
+    final bwSho = _smoothedShoulderDeg(frames, bwI);
+    var delta = wrapDeg(bwSho - startSho);
+    // The same physical coil rotates the projected shoulder line in opposite
+    // directions depending on which side of the player the camera sits.
+    // Orient to the engine's reference (a player's-left-side view) so the
+    // label is consistent across camera sides.
+    if (majorityView == ViewBucket.sideRight) delta = -delta;
+    // Positive delta → shoulders coil toward the dominant side → forehand.
+    // Side views can't see depth, so the ceiling is held at 0.7 and a weak
+    // rotation signal degrades to footwork rather than a guessed stroke.
+    final sideConf = (delta.abs().clamp(0.0, 25.0) / 25.0) * 0.7;
+    if (sideConf < 0.2) return (Stroke.footwork, sideConf);
     final stroke = delta > 0 ? Stroke.forehand : Stroke.backhand;
-    if (sideConf < 0.25) return (Stroke.footwork, sideConf);
     return (stroke, sideConf);
   }
 
-  // Front / diagonal views: wrist-X backswing heuristic.
-  final bwX = frames[bwI].keypoints[Kp.rightWrist][0];
+  // Front / diagonal views: wrist-X backswing heuristic, chirality-corrected
+  // so a forehand reads as a forehand whether the player faces toward or away
+  // from the camera (see [_chiralitySign]).
+  final bwX = frames[bwI].keypoints[Kp.rightWrist][0] * _chiralitySign(frames, s, p);
   final fbConf = (bwX.abs().clamp(0.0, 1.2) / 1.2);
   final stroke = bwX >= 0.0 ? Stroke.forehand : Stroke.backhand;
-  // Low-confidence forehand/backhand in ambiguous side views; downgrade to
-  // footwork cues rather than coaching on a mislabelled stroke.
+  // Backswing wrist near the body center is genuinely ambiguous; downgrade to
+  // footwork cues rather than coaching on a coin-flip stroke label.
   if (fbConf < 0.45) return (Stroke.footwork, fbConf);
   return (stroke, fbConf);
+}
+
+/// In-frame chirality of the player: `+1` when the dominant (right, after
+/// handedness mirroring) shoulder sits on the +x side — the engine's reference
+/// orientation, equivalent to viewing the player from behind — and `-1` when
+/// the player is horizontally flipped in frame, as they are when facing the
+/// camera. Averaged over the prep→contact span so a single jittered shoulder
+/// keypoint can't flip the sign. The forehand/backhand rules multiply their
+/// wrist-X signal by this so facing direction no longer inverts the label.
+///
+/// Note: this is a no-op (`+1`) on the synthetic parity fixtures, which are all
+/// authored in reference chirality; it only corrects real camera-facing
+/// footage. In a near-edge-on side view the shoulders project onto a tiny x
+/// span and the sign is unreliable, which is why side views use trunk rotation
+/// (above) instead of consulting this.
+double _chiralitySign(List<TimedKeypoints> frames, int start, int peak) {
+  var sum = 0.0;
+  for (var i = start; i <= peak; i++) {
+    final kp = frames[i].keypoints;
+    sum += kp[Kp.rightShoulder][0] - kp[Kp.leftShoulder][0];
+  }
+  return sum >= 0.0 ? 1.0 : -1.0;
+}
+
+/// Mean shoulder-line angle over a centered ±[half]-frame window, unwrapped
+/// around the center sample so the average doesn't fold across ±180°. Damps
+/// the keypoint jitter that makes raw side-view rotation signs flicker.
+double _smoothedShoulderDeg(List<TimedKeypoints> frames, int i, {int half = 2}) {
+  final lo = i - half < 0 ? 0 : i - half;
+  final hi = i + half > frames.length - 1 ? frames.length - 1 : i + half;
+  var total = 0.0;
+  double? base;
+  var count = 0;
+  for (var j = lo; j <= hi; j++) {
+    final a = jointAngles(frames[j].keypoints).shoulderLineDeg;
+    base ??= a;
+    total += base + wrapDeg(a - base);
+    count++;
+  }
+  return count == 0 ? 0.0 : total / count;
 }
 
 /// Wrist rearmost point: min projection onto the swing direction at peak.
