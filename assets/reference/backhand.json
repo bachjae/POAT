@@ -114,6 +114,22 @@
               ],
               "cue_low": "meet the ball further out in front",
               "cue_high": "let the ball come to you a touch"
+            },
+            {
+              "id": "racquet_angle",
+              "ideal": [
+                140,
+                180
+              ],
+              "weight": 0.12,
+              "views": [
+                "side_left",
+                "side_right",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "drive the racquet straight through the contact line",
+              "cue_high": "keep the racquet head controlled through the hit"
             }
           ]
         },
@@ -260,6 +276,22 @@
               ],
               "cue_low": "meet the ball further out in front",
               "cue_high": "let the ball come to you a touch"
+            },
+            {
+              "id": "racquet_angle",
+              "ideal": [
+                140,
+                180
+              ],
+              "weight": 0.12,
+              "views": [
+                "side_left",
+                "side_right",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "drive the racquet straight through the contact line",
+              "cue_high": "keep the racquet head controlled through the hit"
             }
           ]
         },
@@ -406,6 +438,22 @@
               ],
               "cue_low": "meet the ball further out in front",
               "cue_high": "let the ball come to you a touch"
+            },
+            {
+              "id": "racquet_angle",
+              "ideal": [
+                140,
+                180
+              ],
+              "weight": 0.12,
+              "views": [
+                "side_left",
+                "side_right",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "drive the racquet straight through the contact line",
+              "cue_high": "keep the racquet head controlled through the hit"
             }
           ]
         },

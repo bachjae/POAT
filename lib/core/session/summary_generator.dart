@@ -26,6 +26,9 @@ const Map<String, String> metricLabels = {
   'split_step_rate': 'Split step',
   'stance_width': 'Wide base',
   'recovery_steps': 'Recovery footwork',
+  'racquet_angle': 'Racquet angle',
+  'racquet_height': 'Racquet reach',
+  'racquet_drop': 'Racquet drop',
 };
 
 /// Short titles used for improvement items.
@@ -42,6 +45,9 @@ const Map<String, String> _improvementTitles = {
   'split_step_rate': 'Split step habit',
   'stance_width': 'Stance width',
   'recovery_steps': 'Recovery footwork',
+  'racquet_angle': 'Racquet angle at contact',
+  'racquet_height': 'Racquet reach',
+  'racquet_drop': 'Racquet drop',
 };
 
 /// Direction word per metric: (below ideal band, above ideal band).
@@ -58,6 +64,9 @@ const Map<String, (String, String)> _directionWords = {
   'split_step_rate': ('missed', 'mistimed'),
   'stance_width': ('narrow', 'wide'),
   'recovery_steps': ('short', 'overrun'),
+  'racquet_angle': ('lagging', 'flailing'),
+  'racquet_height': ('low', 'overreaching'),
+  'racquet_drop': ('shallow', 'deep'),
 };
 
 class Drill {

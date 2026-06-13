@@ -289,6 +289,51 @@ SERVE_TOSS_BY_TIER = {
 }
 
 
+# ---- Racquet metrics (the second tracker; SPEC §5a) -----------------------
+# Measured from the racquet skeleton (handle->throat->tip). With no optical
+# detector bundled the racquet is estimated as a rigid forearm extension, so
+# `racquet_angle` (shaft angle from vertical at contact) and `racquet_height`
+# (frame-tip reach at contact) read the racquet-ARM line, not the racquet-face
+# twist (which is documented as detector-only / not pose-sensible). Bands are
+# calibrated to the extended, on-line racquet position each stroke wants and
+# kept tier-independent (the estimate isn't precise enough to justify
+# tier-tightening) and low-weight, so the racquet refines a shot's score and
+# cues without ever outvoting the body metrics. Appended after scale_ranges.
+RACQUET_BY_STROKE = {
+    "forehand": {
+        "contact": [
+            m("racquet_angle", [150, 180], 0.12, SIDE_DIAG,
+              "let the racquet extend through the line of the shot",
+              "control the racquet head — don't fling it past contact"),
+        ],
+    },
+    "backhand": {
+        "contact": [
+            m("racquet_angle", [140, 180], 0.12, SIDE_DIAG,
+              "drive the racquet straight through the contact line",
+              "keep the racquet head controlled through the hit"),
+        ],
+    },
+    "volley": {
+        "contact": [
+            m("racquet_angle", [115, 180], 0.12, SIDE_DIAG,
+              "firm racquet face — punch it through, no droop",
+              "steady the face — it's a block, not a flick"),
+        ],
+    },
+    "serve": {
+        "contact": [
+            m("racquet_angle", [0, 25], 0.18, ALL_VIEWS,
+              "keep reaching straight up at contact",
+              "reach UP — get the racquet vertical, not swinging out"),
+            m("racquet_height", [3.0, 4.0], 0.18, ALL_VIEWS,
+              "stretch taller — get the racquet tip up at contact",
+              "settle the contact a touch — you're overreaching"),
+        ],
+    },
+}
+
+
 def build(stroke, phases):
     doc = {"stroke": stroke, "skill_levels": {}}
     for tier, widen in WIDEN.items():
@@ -308,6 +353,10 @@ def build(stroke, phases):
                   "separate the tossing arm from the racket arm earlier",
                   "keep the toss synchronized with the trophy position"),
             ]
+        # Racquet metrics (tier-independent), appended after the tier scaling.
+        for phase, metrics in RACQUET_BY_STROKE.get(stroke, {}).items():
+            node["phases"].setdefault(phase, {"metrics": []})
+            node["phases"][phase]["metrics"] += [dict(mm) for mm in metrics]
         doc["skill_levels"][tier] = node
     return doc
 

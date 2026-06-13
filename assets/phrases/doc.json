@@ -295,6 +295,42 @@
       "Mechanically: smooth recovery, no scramble",
       "Remember: easy feet on the way back"
     ],
+    "cue:racquet_angle:low": [
+      "extend the racquet through",
+      "drive the head through",
+      "racquet through the line",
+      "swing it on through",
+      "finish the racquet forward",
+      "send the head through",
+      "Key point: extend the racquet through",
+      "Watch this: drive the head through",
+      "Mechanically: racquet through the line",
+      "Remember: swing it on through"
+    ],
+    "cue:racquet_height:low": [
+      "stretch taller for it",
+      "reach the racquet up",
+      "racquet head higher",
+      "full stretch up there",
+      "get up to it",
+      "strike at the peak",
+      "Key point: stretch taller for it",
+      "Watch this: reach the racquet up",
+      "Mechanically: racquet head higher",
+      "Remember: full stretch up there"
+    ],
+    "cue:racquet_height:high": [
+      "settle the contact down",
+      "ease the reach back",
+      "don't overreach up there",
+      "lower the strike slightly",
+      "comfortable reach, not max",
+      "repeatable contact height",
+      "Key point: settle the contact down",
+      "Watch this: ease the reach back",
+      "Mechanically: don't overreach up there",
+      "Remember: lower the strike slightly"
+    ],
     "encourage": [
       "that's the kinetic chain working",
       "textbook sequencing there",

@@ -5,6 +5,7 @@ library;
 
 import 'engine_types.dart';
 import 'normalizer.dart';
+import 'racquet.dart';
 import 'shot_detector.dart';
 
 class ReferenceMetric {
@@ -82,6 +83,14 @@ Map<String, Map<String, double>> measureMetrics(
   final prepMs = frames[phases.contact].timestampMs -
       frames[phases.prep].timestampMs;
 
+  // Racquet skeleton at the backswing and contact frames (forearm-extension
+  // estimate unless an optical detector overrode it upstream). `racquet_drop`
+  // is the frame-tip height at the racket-drop frame (lower = the head has
+  // dropped deeper behind the player), `racquet_angle` the shaft orientation
+  // at contact, `racquet_height` the tip reach at contact.
+  final bwRk = racquetMetricsAt(frames[phases.backswing].keypoints);
+  final ctRk = racquetMetricsAt(frames[phases.contact].keypoints);
+
   final result = <String, Map<String, double>>{
     'preparation': {
       'shoulder_turn': turn(prepA),
@@ -92,12 +101,15 @@ Map<String, Map<String, double>> measureMetrics(
       'elbow_angle': bwA.elbowAngle,
       'hip_shoulder_sep': (turn(bwA) - hipTurn(bwA)).abs(),
       'shoulder_turn': turn(bwA),
+      'racquet_drop': bwRk.height,
     },
     'contact': {
       'elbow_angle': ctA.elbowAngle,
       'contact_in_front': ctA.wristX,
       'knee_flexion': ctA.kneeFlexion,
       'contact_height': ctA.wristHeight,
+      'racquet_angle': ctRk.angle,
+      'racquet_height': ctRk.height,
     },
     'follow_through': {
       'wrist_finish_height': ftA.wristHeight,

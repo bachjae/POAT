@@ -71,6 +71,15 @@
      "fixes": ["contact_in_front", "elbow_angle"]},
     {"id": "approach_recovery", "title": "Approach-and-recover drill", "minutes": 7,
      "description": "Hit an approach shot and immediately take two shuffle steps back to the split-step position before the next ball is fed.",
-     "fixes": ["recovery_steps"]}
+     "fixes": ["recovery_steps"]},
+    {"id": "racquet_line", "title": "Racquet-through-the-line drill", "minutes": 6,
+     "description": "Hit slow, deliberate strokes and feel the racquet head lead out toward the target through contact, finishing long down the line instead of flicking the wrist across the ball.",
+     "fixes": ["racquet_angle"]},
+    {"id": "edge_extension", "title": "Edge-on extension drill", "minutes": 5,
+     "description": "Shadow-swing turning the racquet so the top edge leads to the ball, then roll to a finish — grooves an on-line racquet path so the head never lags or flails through the hit.",
+     "fixes": ["racquet_angle"]},
+    {"id": "serve_reach_up", "title": "Racquet-tip-to-sky serve drill", "minutes": 7,
+     "description": "Serve focusing only on contacting at the very top of your reach with the racquet tip pointing at the sky; drive up from the legs so the frame is fully extended at the strike.",
+     "fixes": ["racquet_height", "contact_height"]}
   ]
 }

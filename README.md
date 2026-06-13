@@ -20,6 +20,24 @@ the engine sees them. Live shot-detection windows are specified in
 milliseconds and adapt to the measured frame rate, so thermal fps drops
 don't silently change detection behavior.
 
+### Two trackers: body **and** racquet
+
+On top of the 17-point body pose, a second tracker follows the **racquet**
+(`lib/core/engine/racquet.dart`). MoveNet has no racquet keypoints, so the
+racquet is modelled as a rigid **forearm extension** — a handle→throat→tip
+skeleton continuing the elbow→wrist line — and **drawn live over the player**.
+It feeds the brain the **racquet angle** at contact (swinging on the line of
+the shot, or lagging/flailing), the **racquet reach** on serves, and a
+**`racquet_confidence`** (0–1: racquet-head sweep + arm extension) so the coach
+**hedges or stays quiet instead of mistaking a stray empty-hand wave for a
+real shot**. It reads the racquet-arm line and gross orientation, *not* the
+grip or open/closed face twist (still verbal-only — not pose-sensible). The
+data contract (`racquetPose(..., detected:)`) already accepts measured racquet
+keypoints, so bundling an optical racquet model later
+(`tool/fetch_models.sh --racquet`) upgrades every racquet metric in place and
+makes the confidence an authoritative presence gate. See
+[`docs/TENNIS_COACHING_KNOWLEDGE.md`](docs/TENNIS_COACHING_KNOWLEDGE.md).
+
 ## Tracking, live analysis, and the post-session debrief
 
 Every shot is stored with its **full deviation list** (id, phase,

@@ -102,6 +102,21 @@ const Map<String, ({String why, String fix})> _metricKnowledge = {
     fix: 'The shot isn\'t over at contact: two quick shuffles back toward '
         'the middle before the ball crosses the net.',
   ),
+  'racquet_angle': (
+    why: 'The racquet tracker reads the frame as an extension of your arm. '
+        'When the racquet lags or flails through contact instead of swinging '
+        'on the line of the shot, the face turns over unpredictably and the '
+        'ball sprays — control leaks before power does.',
+    fix: 'Let the racquet extend through the line of the shot: feel the head '
+        'leading out toward your target, not dragging behind your hand.',
+  ),
+  'racquet_height': (
+    why: 'On the serve and overhead, how high the racquet tip reaches at '
+        'contact is your power and your margin. Strike below full stretch '
+        'and you lose pace and the downward angle into the box.',
+    fix: 'Stretch tall and meet the ball at the very top of your reach — '
+        'racquet tip to the sky, driving up from the legs.',
+  ),
 };
 
 /// The session facts the lite coach is allowed to talk about — exactly the
@@ -172,6 +187,12 @@ class LiteCoachChat {
     final q = question.toLowerCase();
     final metric = _metricIn(q);
 
+    if (_mentionsAny(q, const [
+      'grip', 'how do i hold', 'how should i hold', 'continental',
+      'eastern', 'semi-western', 'semiwestern', 'western grip',
+    ])) {
+      return _gripAnswer();
+    }
     if (_mentionsAny(q, ['drill', 'practice', 'practise', 'exercise', 'train'])) {
       return _drillAnswer(metric);
     }
@@ -255,6 +276,8 @@ class LiteCoachChat {
         'prep_before_contact_ms' => 'preparation',
         'stance_width' => 'stance',
         'recovery_steps' => 'recovery',
+        'racquet_angle' => 'racquet',
+        'racquet_height' => 'racquet reach',
         _ => null,
       };
 
@@ -488,6 +511,28 @@ class LiteCoachChat {
     final tip = _metricKnowledge[top.deviationId]?.fix;
     if (tip != null) b.write('Start with ${top.title.toLowerCase()}: $tip');
     return b.toString().trimRight();
+  }
+
+  /// Grip and racquet-face twist are not pose-measurable; say so honestly,
+  /// give the standard guidance, then tie back to what the racquet tracker
+  /// DOES read (angle + reach through the swing).
+  String _gripAnswer() {
+    final b = StringBuffer(
+        'I can\'t read your grip from the camera — grip type and the '
+        'racquet-face twist need a coach\'s eye or a racquet sensor, so I '
+        'never score them. As a rule: a Semi-Western grip makes topspin '
+        'easiest on the forehand, and Continental covers the serve and both '
+        'volleys. ');
+    final rk = _improvementFor('racquet_angle') ??
+        _improvementFor('racquet_height');
+    if (rk != null) {
+      b.write('What I CAN track is the racquet as an extension of your arm: '
+          'this ${_sessionLabel()} it showed up as ${rk.detail}.');
+    } else {
+      b.write('What I CAN track is the racquet angle and reach through your '
+          'swing — and those stayed in range this ${_sessionLabel()}.');
+    }
+    return b.toString();
   }
 
   String _whyAnswer(String metricId) {

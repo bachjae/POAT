@@ -19,6 +19,7 @@ import '../engine/engine_types.dart';
 import '../engine/footwork.dart';
 import '../engine/normalizer.dart';
 import '../engine/phase_segmenter.dart';
+import '../engine/racquet.dart';
 import '../engine/shot_detector.dart';
 import '../engine/technique_scorer.dart';
 
@@ -32,6 +33,8 @@ class ShotEvent {
     required this.wristTrail,
     this.classificationConf = 1.0,
     this.viewConfidence = 1.0,
+    this.racquetConfidence = 1.0,
+    this.racquetAngle,
   });
 
   final Stroke stroke;
@@ -51,6 +54,16 @@ class ShotEvent {
   /// How reliable the camera angle is for biomechanics metrics (0–1).
   /// Derived from the mean shoulder-width ratio across the shot window.
   final double viewConfidence;
+
+  /// How sure the racquet tracker is that a racquet was actually swung (0–1).
+  /// From the optical detector when bundled, otherwise a pose-only
+  /// plausibility (racquet-head sweep + arm extension). Low values let the
+  /// coach hedge instead of confidently coaching a non-shot.
+  final double racquetConfidence;
+
+  /// Racquet shaft angle from vertical at contact, in degrees (the
+  /// forearm-extension estimate). Null for footwork windows.
+  final double? racquetAngle;
 }
 
 class FootworkEvent {
@@ -280,6 +293,8 @@ class ShotStreamProcessor {
         measured: measured,
         classificationConf: classificationConf,
         viewConfidence: _computeViewConfidence(shot.start, shot.end),
+        racquetConfidence: racquetConfidence(_buffer, shot),
+        racquetAngle: measured['contact']?['racquet_angle'],
         wristTrail: [
           for (var i = shot.start; i <= shot.end; i++)
             _buffer[i].keypoints[Kp.rightWrist],

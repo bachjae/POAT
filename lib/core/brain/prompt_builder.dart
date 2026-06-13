@@ -75,6 +75,7 @@ class PromptBuilder {
     required List<String> recentCues,
     double classificationConf = 1.0,
     double viewConfidence = 1.0,
+    double racquetConfidence = 1.0,
     String? sessionFocus,
     String? goalMetric,
   }) {
@@ -95,6 +96,12 @@ class PromptBuilder {
       'session_focus':
           sessionFocus != null ? ' Session focus: $sessionFocus.' : '',
       'goal_metric': goalMetric != null ? ' Goal: $goalMetric.' : '',
+      // The racquet tracker couldn't confirm a racquet swing — tell the coach
+      // to stay gentle and general rather than confidently coaching a non-shot.
+      'racquet_note': racquetConfidence < 0.5
+          ? ' Racquet confidence is low — you may not have a clear racquet in '
+              'view, so keep the cue gentle and general.'
+          : '',
     });
   }
 

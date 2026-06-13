@@ -295,6 +295,42 @@
       "There it is — smooth recovery, no scramble",
       "There it is — reset with rhythm"
     ],
+    "cue:racquet_angle:low": [
+      "extend the racquet through",
+      "drive the head through",
+      "racquet through the line",
+      "swing it on through",
+      "finish the racquet forward",
+      "send the head through",
+      "Come on — extend the racquet through",
+      "You've got this — drive the head through",
+      "There it is — racquet through the line",
+      "Nearly there — swing it on through"
+    ],
+    "cue:racquet_height:low": [
+      "stretch taller for it",
+      "reach the racquet up",
+      "racquet head higher",
+      "full stretch up there",
+      "get up to it",
+      "strike at the peak",
+      "Come on — stretch taller for it",
+      "You've got this — reach the racquet up",
+      "There it is — racquet head higher",
+      "Nearly there — full stretch up there"
+    ],
+    "cue:racquet_height:high": [
+      "settle the contact down",
+      "ease the reach back",
+      "don't overreach up there",
+      "lower the strike slightly",
+      "comfortable reach, not max",
+      "repeatable contact height",
+      "Come on — settle the contact down",
+      "You've got this — ease the reach back",
+      "There it is — don't overreach up there",
+      "Nearly there — lower the strike slightly"
+    ],
     "encourage": [
       "yes, that's the swing",
       "beautiful, keep that feeling",

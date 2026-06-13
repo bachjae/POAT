@@ -14,9 +14,10 @@
     "wrist_divergence": "Tossing-wrist minus racket-wrist height at the toss peak, in torso units."
   },
   "sensing_notes": {
-    "measurable": "MoveNet returns 17 body keypoints. RallyCoach can therefore measure JOINT angles and POSITIONS: arm extension (elbow), leg bend (knee), trunk lean, shoulder/hip rotation and their separation, wrist position at contact and finish, swing/contact height, toss height, preparation timing, and footwork (split step, stance width, recovery).",
-    "not_measurable": "MoveNet has NO hand, finger or racket keypoints. True WRIST ANGLE (flexion/extension, radial/ulnar deviation), GRIP type, racket-face angle, ball spin, ball speed and net clearance CANNOT be sensed from pose alone. Knowledge about grip and wrist action is delivered as spoken/text coaching only, never as a measured score. The closest measurable proxies for 'wrist' are wrist POSITION metrics: contact_in_front, contact_height and wrist_finish_height.",
-    "view_gating": "Rotation-separation (hip_shoulder_sep) and contact-depth (contact_in_front) are only reliable from certain camera angles, so the engine view-gates them. From a flat side view forehand/backhand discrimination is geometrically ambiguous; the coach falls back to footwork-only cues."
+    "measurable": "MoveNet returns 17 body keypoints. RallyCoach can therefore measure JOINT angles and POSITIONS: arm extension (elbow), leg bend (knee), trunk lean, shoulder/hip rotation and their separation, wrist position at contact and finish, swing/contact height, toss height, preparation timing, and footwork (split step, stance width, recovery). A second tracker models the RACQUET as a rigid extension of the forearm (handle->throat->tip), adding the racquet angle and reach through the swing (metrics racquet_angle, racquet_height, racquet_drop).",
+    "racquet_tracking": "The racquet has no MoveNet keypoints, so it is tracked as a rigid forearm extension: the frame leaves the hand at the wrist and continues ~1.35 torso lengths along the elbow->wrist line, giving a handle, throat and frame tip in the same units as the body. This is drawn live over the player and feeds racquet_angle (shaft angle from vertical at contact) and racquet_height (tip reach). It reads the racquet-ARM line and gross orientation - NOT the open/closed face twist or grip. A `racquet_confidence` (0-1) reports how sure the tracker is a racquet was actually swung (racquet-head sweep + arm extension); when it is low the coach hedges instead of confidently coaching a non-shot. Bundling an optical racquet detector later upgrades every racquet metric in place (measured handle/tip keypoints replace the estimate) and makes racquet_confidence an authoritative presence gate.",
+    "not_measurable": "Even with the racquet tracker, true WRIST ANGLE (flexion/extension, radial/ulnar deviation), GRIP type, racket-FACE angle (open/closed twist), ball spin, ball speed and net clearance CANNOT be sensed from a 2D body pose. The racquet estimate gives the racquet-arm LINE and orientation, not the face twist. Knowledge about grip and wrist/face action is delivered as spoken/text coaching only, never as a measured score. The closest measurable proxies for 'wrist' are wrist POSITION metrics: contact_in_front, contact_height and wrist_finish_height.",
+    "view_gating": "Rotation-separation (hip_shoulder_sep) and contact-depth (contact_in_front) are only reliable from certain camera angles, so the engine view-gates them; racquet_angle is gated the same way for groundstrokes and volleys. From a flat side view forehand/backhand discrimination is geometrically ambiguous; the coach falls back to footwork-only cues."
   },
   "metrics": {
     "shoulder_turn": {
@@ -409,38 +410,132 @@
           "drills": ["recovery_shuffle", "figure_eight_feet"]
         }
       }
+    },
+    "racquet_angle": {
+      "label": "Racquet angle at contact (racquet-arm line)",
+      "checks": ["racquet position", "arm angle"],
+      "phases": ["contact"],
+      "view_required": ["side_left", "side_right", "diagonal_left", "diagonal_right"],
+      "tracker": "racquet",
+      "biomechanics": "The racquet tracker reads the frame as a rigid extension of the forearm (handle at the hand, frame tip ~1.35 torso lengths beyond it along the elbow->wrist line). Its angle from vertical at contact tells whether the racquet is swinging on the line of the shot with the head leading, or lagging and flailing behind the hand. A racquet arriving on-line keeps the strings square through the ball; a lagging or flicking head turns the face over unpredictably and sprays direction - on groundstrokes control leaks before power does. On the serve the same measure wants the racquet vertical (tip up) at a fully reached contact.",
+      "sensing": "Estimated from the forearm when no optical racquet detector is bundled, so it reads the racquet-ARM line, NOT the open/closed FACE twist (which needs a real racquet detector and is not sensible from a 2D body pose). View-gated to side/diagonal for groundstrokes and volleys; on the serve the tip-up measure is read from any view. When a racquet detector is added, the same metric is computed from the measured frame and handle keypoints with no downstream change.",
+      "pro_benchmarks": [
+        {"context": "groundstroke contact - racquet extending on the line of the shot", "value": "frame tip leading the hand, shaft roughly along the swing line", "source": "tennisinstruction_wiper"},
+        {"context": "serve contact - racquet vertical at full reach", "value": "tip up, contact at ~100-110 deg arm abduction", "source": "pmc_8stage_serve"}
+      ],
+      "faults": {
+        "low": {
+          "name": "Racquet head lagging / not extending through",
+          "looks_like": "The racquet trails behind the hand at contact instead of swinging out on the line; contact feels wristy, late and behind the body.",
+          "causes": ["Decelerating the arm into contact", "Flicking the wrist instead of swinging the head through", "Late contact crowding the racquet behind the body"],
+          "fix": "Swing the racquet head out through the line of the shot toward your target - let the head lead, not drag behind the hand.",
+          "feel": "Point the butt at the ball, then send the head out through to the target.",
+          "drills": ["racquet_line", "edge_extension"]
+        },
+        "high": {
+          "name": "Racquet head flailing / face swinging open",
+          "looks_like": "The head whips past the contact line and the face flings open, ballooning or spraying the shot.",
+          "causes": ["Over-swinging the hand and wrist", "No control of the racquet head through contact"],
+          "fix": "Keep the racquet head controlled through the strike - punch the contact and quiet the wrist.",
+          "feel": "Steady the face through the ball, finish with control.",
+          "drills": ["edge_extension", "shadow_swing"]
+        }
+      }
+    },
+    "racquet_height": {
+      "label": "Racquet reach at contact (serve / overhead)",
+      "checks": ["racquet position", "swing height"],
+      "phases": ["contact"],
+      "tracker": "racquet",
+      "biomechanics": "The frame-tip height at contact on the serve and overhead is the racquet's reach. Striking with the racquet fully extended overhead maximises ball speed (the kinetic chain releases into a long lever) and the downward angle into the service box. Hitting below full stretch shortens the lever and flattens the trajectory into the net or long.",
+      "sensing": "Frame-tip height estimated from the forearm extension; complements contact_height (the WRIST height) by adding the racquet length to the reach. Detector-upgradable like racquet_angle.",
+      "pro_benchmarks": [
+        {"context": "serve contact geometry", "value": "contact near full stretch, ~100-110 deg arm abduction, racquet tip at the top of the reach", "source": "pmc_8stage_serve"}
+      ],
+      "faults": {
+        "low": {
+          "name": "Striking below full reach",
+          "looks_like": "Racquet tip not at the top of the reach at contact; the serve lacks pace and dips into the net.",
+          "causes": ["Toss too low or dropping the tossing arm early", "No leg drive up to the ball", "Reaching out instead of up at contact"],
+          "fix": "Stretch tall and meet the ball at the very top of the reach, tip to the sky, driving up from the legs.",
+          "feel": "Hit at the top of a full stretch, not a comfortable one.",
+          "drills": ["serve_reach_up", "toss_reach"]
+        },
+        "high": {
+          "name": "Overreaching the contact",
+          "looks_like": "Straining past a balanced reach, usually chasing a toss thrown too high or behind.",
+          "causes": ["Toss too high or behind", "Jumping at a ball out of position"],
+          "fix": "Settle the contact to a height you can repeat on balance.",
+          "feel": "Tall but balanced, not a maximum stretch every time.",
+          "drills": ["toss_reach"]
+        }
+      }
+    },
+    "racquet_drop": {
+      "label": "Racquet drop (serve loading)",
+      "checks": ["racquet position"],
+      "phases": ["backswing"],
+      "tracker": "racquet",
+      "scored": false,
+      "biomechanics": "Behind the trophy the racquet head drops down the back (the 'back-scratch') before accelerating up to contact - the deeper, looser drop pre-stretches the shoulder and forearm for racquet-head speed. The tracker reports the frame-tip height at the racket-drop frame; a deep drop sits low behind the player.",
+      "sensing": "Tracked from the racquet estimate and surfaced for context, but NOT scored from pose alone - the back-scratch depth is foreshortened and unreliable in 2D, so it informs the coach without producing a deterministic cue. A racquet detector would make it scorable.",
+      "pro_benchmarks": [
+        {"context": "serve racket drop (8-stage model, acceleration stage)", "value": "deep, relaxed drop down the back before the drive up", "source": "pmc_8stage_serve"}
+      ],
+      "faults": {
+        "low": {
+          "name": "Shallow racket drop",
+          "looks_like": "Little or no back-scratch; the racquet starts up from a high, tight position.",
+          "causes": ["Tense arm in the trophy", "Rushing from the trophy to contact"],
+          "fix": "Let the racquet drop relaxed down the back before you drive up to the ball.",
+          "feel": "Loose arm - let the head fall, then explode up.",
+          "drills": ["serve_trophy"]
+        },
+        "high": {
+          "name": "Over-dropped / collapsed",
+          "looks_like": "The arm collapses so far that the timing up to contact is lost.",
+          "causes": ["Disconnected, late service motion"],
+          "fix": "Keep the drop relaxed but connected to the leg drive and the toss.",
+          "feel": "Drop and drive as one motion.",
+          "drills": ["serve_trophy"]
+        }
+      }
     }
   },
   "strokes": {
     "forehand": {
       "summary": "Topspin drive built on an early unit turn, a low-to-high swing and contact out in front. Power comes from the legs and trunk (shoulder internal rotation supplies a large share of racket speed), not the arm.",
       "typical_grip": "Eastern or Semi-Western (Semi-Western is the most common modern forehand grip and the easiest route to topspin). Grip is NOT pose-measurable - coach it verbally.",
-      "key_checkpoints": ["Early shoulder turn before the bounce", "Loaded legs / athletic knee bend", "Slightly bent, relaxed elbow", "Contact ~30-40 cm in front of the body", "Low-to-high finish, balanced"],
-      "metric_focus": ["shoulder_turn", "elbow_angle", "contact_in_front", "knee_flexion", "wrist_finish_height", "prep_before_contact_ms"],
-      "common_faults": ["Not turning the body (arming the ball)", "Wrong grip blocking topspin", "Late preparation -> late contact", "Decelerating into a low finish"]
+      "key_checkpoints": ["Early shoulder turn before the bounce", "Loaded legs / athletic knee bend", "Slightly bent, relaxed elbow", "Contact ~30-40 cm in front of the body", "Racquet swinging on the line, head leading through contact", "Low-to-high finish, balanced"],
+      "metric_focus": ["shoulder_turn", "elbow_angle", "contact_in_front", "racquet_angle", "knee_flexion", "wrist_finish_height", "prep_before_contact_ms"],
+      "racquet_position": "Through contact the racquet should extend along the line of the shot with the frame tip leading the hand toward the target, not lagging behind a flicking wrist. The face angle (open/closed for slice/topspin) is grip- and wrist-driven and is NOT pose-measurable - coach it verbally.",
+      "common_faults": ["Not turning the body (arming the ball)", "Wrong grip blocking topspin", "Late preparation -> late contact", "Racquet head lagging / flicking across the ball", "Decelerating into a low finish"]
     },
     "backhand": {
       "summary": "One- or two-handed. The one-hander is an open kinetic chain needing a stable, fairly straight hitting arm and a contact point well in front; the two-hander is a closed chain - more stable, contact closer to the body, more reaction time.",
       "typical_grip": "One-hander: Eastern backhand / Continental hitting hand. Two-hander: dominant Continental + non-dominant Eastern/Semi-Western forehand. Grip is NOT pose-measurable.",
       "key_checkpoints": ["Full shoulder coil (show the back) - more for the one-hander", "Hitting arm set (straighter for the one-hander)", "Contact in front: ~0.59 m one-handed, ~0.40 m two-handed", "Drive up and through, balanced finish"],
-      "metric_focus": ["shoulder_turn", "elbow_angle", "contact_in_front", "hip_shoulder_sep", "wrist_finish_height"],
-      "common_faults": ["Bent/collapsing arm on the one-hander", "Late or cramped contact", "Turning hips and shoulders as one block (no coil)"],
+      "metric_focus": ["shoulder_turn", "elbow_angle", "contact_in_front", "racquet_angle", "hip_shoulder_sep", "wrist_finish_height"],
+      "racquet_position": "Drive the racquet straight through the contact line; on the one-hander especially the head must lead out in front, not lag behind the body. Face twist is grip-driven and not pose-measurable.",
+      "common_faults": ["Bent/collapsing arm on the one-hander", "Late or cramped contact", "Racquet head lagging behind the hand", "Turning hips and shoulders as one block (no coil)"],
       "notes": "One- vs two-handed cannot be reliably told apart from pose alone; the engine scores the visible arm shape and contact geometry. The two-hand contact band is naturally a touch closer to the body."
     },
     "serve": {
       "summary": "The most complex stroke - an 8-stage chain (start, release, loading, cocking/trophy, acceleration, contact, deceleration, finish). The trophy is the fully loaded position: maximum knee flexion and lowest elbow, with the tossing arm up. Energy flows legs -> trunk -> shoulder internal rotation -> arm -> wrist into an upward, slightly-in-front contact.",
       "typical_grip": "Continental (the universal serve grip; it enables the pronation/internal rotation that creates pace and spin). Using a forehand 'pancake' grip is a classic fault and is NOT pose-measurable.",
       "key_checkpoints": ["Smooth straight-arm toss, slightly in front and to the racket side", "Trophy: deep knee bend (~115 deg interior), elbow up, racket up, tossing arm up", "Racket drop behind the back", "Reach UP to a high contact (~100-110 deg arm abduction, elbow ~150 deg interior)", "Drive the chest through; land inside the court"],
-      "metric_focus": ["knee_flexion", "elbow_angle", "contact_height", "toss_height", "wrist_divergence", "trunk_tilt"],
-      "common_faults": ["Toss too low / dropping the tossing arm early -> downward swing into the net", "Pancake (forehand) grip preventing pronation", "Shallow knee bend losing leg drive", "Contact too low / not reaching up"],
+      "metric_focus": ["knee_flexion", "elbow_angle", "contact_height", "racquet_height", "racquet_angle", "toss_height", "wrist_divergence", "trunk_tilt"],
+      "racquet_position": "At contact the racquet should be vertical (tip to the sky) at full reach; behind the trophy it drops down the back (the back-scratch) before driving up. The pronation that squares the face is grip- and forearm-driven and NOT pose-measurable.",
+      "common_faults": ["Toss too low / dropping the tossing arm early -> downward swing into the net", "Pancake (forehand) grip preventing pronation", "Shallow knee bend losing leg drive", "Contact too low / racquet not reaching up to full stretch"],
       "kovacs_model_source": "pmc_8stage_serve"
     },
     "volley": {
       "summary": "A compact PUNCH at the net, not a swing. Short or no backswing, a firm wrist, contact clearly in front, and body weight stepped through the ball. Same Continental grip for both forehand and backhand volley so there's no time-consuming grip change.",
       "typical_grip": "Continental for both wings. NOT pose-measurable.",
       "key_checkpoints": ["Small unit turn (set the shoulders, no big takeback)", "Low athletic base, knees bent", "Firm wrist and arm - 'punch', don't swing", "Contact clearly in front of the body", "Short, held finish - step in with the weight"],
-      "metric_focus": ["shoulder_turn", "elbow_angle", "contact_in_front", "knee_flexion", "wrist_finish_height"],
-      "common_faults": ["Big backswing (slow reaction, less control)", "Loose/whippy wrist", "Contact too late / beside the body", "Standing tall instead of in a low base"]
+      "metric_focus": ["shoulder_turn", "elbow_angle", "contact_in_front", "racquet_angle", "knee_flexion", "wrist_finish_height"],
+      "racquet_position": "A firm racquet face punched out in front - the head stays controlled, no droop or flick. Same Continental grip both wings; grip and face are not pose-measurable.",
+      "common_faults": ["Big backswing (slow reaction, less control)", "Loose/whippy wrist (racquet head flailing)", "Contact too late / beside the body", "Standing tall instead of in a low base"]
     },
     "footwork": {
       "summary": "Scored over rolling ~10 s windows, not per shot. The movement skills that set up every stroke: a well-timed split step, a wide balanced base, and quick economical recovery. Low, light steps - not high-impact hops.",

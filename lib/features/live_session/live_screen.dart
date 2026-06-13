@@ -145,6 +145,7 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
               sourceWidth: source!.lastSourceSize!.width,
               sourceHeight: source.lastSourceSize!.height,
               mirror: source.isFrontCamera,
+              leftHanded: session?.orchestrator.config.leftHanded ?? false,
             ),
           if (!paused && _trail.length > 1) WristTrail(points: _trail),
           if (session?.cameraSource?.thermalFallbackActive ?? false)
