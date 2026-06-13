@@ -120,6 +120,9 @@ def render_template_check():
                       "  elbow_angle at contact: 12 deg below ideal",
         "shot_number": "28", "trend": "-4",
         "recent_cues": "[extend through contact; stay low]",
+        # Optional context slots the live template now exposes (filled by the
+        # Dart PromptBuilder; empty here keeps the render-sanity check honest).
+        "session_focus": "", "goal_metric": "",
     }
     rendered = tpl
     for k, v in fields.items():
@@ -134,7 +137,9 @@ def main():
     render_template_check()
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w") as f:
-        json.dump({"lexicon": LEXICON, "cases": CASES, "max_words": 14}, f, indent=1)
+        # Source of truth for max_words is assets/prompts/cue_lexicon.json (16);
+        # the Dart cue_validator_test deep-equals the two, so they must match.
+        json.dump({"lexicon": LEXICON, "cases": CASES, "max_words": 16}, f, indent=1)
     print(f"wrote {OUT} ({len(CASES)} cases)")
 
 
