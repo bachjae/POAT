@@ -1,0 +1,481 @@
+{
+  "schema_version": 1,
+  "purpose": "Structured tennis coaching knowledge, keyed to the exact metric ids, strokes, phases and deviation directions the RallyCoach engine produces (lib/core/engine/, python_lab/engine_math.py). For every metric the engine can measure from a 2D MoveNet pose, this file gives the biomechanical rationale, professional benchmarks (with literature sources), the faults that show up when the value runs low or high, their root causes, the on-court fix, a one-line feel cue, and the drill ids that target them. A deviation dict {id, phase, direction} maps directly into metrics[id].faults[direction].",
+  "angle_conventions": {
+    "elbow_angle": "Interior angle shoulder-elbow-wrist; 180 = straight arm. Sports-science papers usually report ELBOW FLEXION where 0 = straight, so interior = 180 - flexion (e.g. 30 deg flexion at serve impact = 150 deg interior).",
+    "knee_flexion": "Interior angle hip-knee-ankle; 180 = straight leg. Papers report KNEE FLEXION where 0 = straight, so interior = 180 - flexion (e.g. 64.5 deg flexion at the serve trophy = ~115 deg interior).",
+    "trunk_tilt": "Deviation of the shoulder-mid -> hip-mid line from vertical, in degrees (0 = upright).",
+    "shoulder_turn": "Rotation of the shoulder line away from its address angle, in degrees (90 = chest to the side fence).",
+    "hip_shoulder_sep": "Shoulder turn minus hip turn (the 'X-factor'), in degrees.",
+    "contact_in_front": "Dominant-wrist x at contact in torso units; positive = in front of the body line.",
+    "contact_height": "Dominant-wrist height above hip-mid at contact, in torso units.",
+    "wrist_finish_height": "Dominant-wrist height above hip-mid at the end of the follow-through, in torso units.",
+    "toss_height": "Tossing-wrist height above hip-mid at the toss release peak, in torso units.",
+    "wrist_divergence": "Tossing-wrist minus racket-wrist height at the toss peak, in torso units."
+  },
+  "sensing_notes": {
+    "measurable": "MoveNet returns 17 body keypoints. RallyCoach can therefore measure JOINT angles and POSITIONS: arm extension (elbow), leg bend (knee), trunk lean, shoulder/hip rotation and their separation, wrist position at contact and finish, swing/contact height, toss height, preparation timing, and footwork (split step, stance width, recovery).",
+    "not_measurable": "MoveNet has NO hand, finger or racket keypoints. True WRIST ANGLE (flexion/extension, radial/ulnar deviation), GRIP type, racket-face angle, ball spin, ball speed and net clearance CANNOT be sensed from pose alone. Knowledge about grip and wrist action is delivered as spoken/text coaching only, never as a measured score. The closest measurable proxies for 'wrist' are wrist POSITION metrics: contact_in_front, contact_height and wrist_finish_height.",
+    "view_gating": "Rotation-separation (hip_shoulder_sep) and contact-depth (contact_in_front) are only reliable from certain camera angles, so the engine view-gates them. From a flat side view forehand/backhand discrimination is geometrically ambiguous; the coach falls back to footwork-only cues."
+  },
+  "metrics": {
+    "shoulder_turn": {
+      "label": "Shoulder turn (unit / body turn)",
+      "checks": ["body position", "upper-body rotation"],
+      "phases": ["preparation", "backswing"],
+      "biomechanics": "The shoulder turn is the first big link in the kinetic chain after the legs. Coiling the trunk away from the net stretches the core and stores elastic energy that the body unwinds into the ball; without it players 'arm' the shot and lose both pace and consistency. Turning the shoulders also sets the racket back early, which is why a full turn and early preparation travel together.",
+      "pro_benchmarks": [
+        {"context": "groundstroke preparation, chest roughly to the side fence", "value": "~90 deg of shoulder rotation", "source": "feeltennis_shoulder"},
+        {"context": "shoulder internal rotation contributes a large share of forehand racket speed", "value": "~35% of racket speed in advanced players", "source": "grokipedia_groundstroke"}
+      ],
+      "faults": {
+        "low": {
+          "name": "Under-rotated / open shoulders",
+          "looks_like": "Chest still facing the net at the backswing; the racket arm swings without a coiled body behind it.",
+          "causes": ["Late reaction / watching the ball instead of turning", "Reaching with the arm instead of turning the trunk", "No early unit turn off the split step"],
+          "fix": "Start the turn the instant the ball leaves the opponent's strings, not when it bounces. Turn the shoulders as one unit until your chin is near your lead shoulder.",
+          "feel": "Show your back (or at least your side) to the net before the bounce.",
+          "drills": ["early_turn", "two_bounce_prep", "backhand_coil"]
+        },
+        "high": {
+          "name": "Over-rotated shoulders",
+          "looks_like": "Shoulders wound so far past square that the player can't recover the racket to contact in time.",
+          "causes": ["Over-swinging for power", "Losing sight of the ball during the coil"],
+          "fix": "Keep the turn full but compact - coil to load, not to wind up a baseball swing. Same intent, smaller arc.",
+          "feel": "Turn to load, then let it fire; don't keep winding.",
+          "drills": ["shadow_swing"]
+        }
+      }
+    },
+    "knee_flexion": {
+      "label": "Knee bend (leg drive base)",
+      "checks": ["leg position", "lower-body load"],
+      "phases": ["preparation", "contact"],
+      "biomechanics": "Power in tennis is built from the ground up. Bent knees lower the centre of mass, load the legs like springs and let the player drive UP and through contact, feeding the kinetic chain. Stiff legs force the arm to supply all the power and make contact height hostage to the bounce.",
+      "pro_benchmarks": [
+        {"context": "front-knee flexion at the serve trophy position (max load)", "value": "64.5 +/- 9.7 deg flexion (~115 deg interior hip-knee-ankle)", "source": "frontiers_serve_meta"},
+        {"context": "deeper knee bend on the serve increases vertical drive and serve speed", "value": "intermediate players gained measurable serve speed with greater knee flexion", "source": "pmc_knee_serve"}
+      ],
+      "faults": {
+        "low": {
+          "name": "Too upright / stiff legs (interior angle too large)",
+          "looks_like": "Tall, straight-legged stance; little to no leg drive into the shot.",
+          "causes": ["Fatigue / laziness late in a session", "Not loading between shots", "Standing tall to 'reach' the ball instead of moving the feet"],
+          "fix": "Sit into an athletic squat as you prepare, then drive up through contact. Load the legs, not the arm.",
+          "feel": "Brush a low chair with your free hand between shots; stay down through the hit.",
+          "drills": ["low_base", "balance_board"]
+        },
+        "high": {
+          "name": "Over-squatting (interior angle too small)",
+          "looks_like": "Sinking so low the player is slow to rise and loses spring and balance.",
+          "causes": ["Mistaking 'low' for 'good' and over-bending", "Slow, heavy legs"],
+          "fix": "Bend enough to load and spring, not to sit. Stay light and springy.",
+          "feel": "Athletic and bouncy, not parked in a deep squat.",
+          "drills": ["split_step", "balance_board"]
+        }
+      }
+    },
+    "trunk_tilt": {
+      "label": "Trunk lean (balance / posture)",
+      "checks": ["body position", "balance"],
+      "phases": ["preparation", "follow_through"],
+      "biomechanics": "A controlled, slightly forward trunk tilt lets the player attack the ball and stack the kinetic chain; an excessive or sideways lean pulls the head and eyes off the ball, leaks balance and makes the swing path inconsistent. Staying tall and balanced through contact keeps the strike repeatable.",
+      "pro_benchmarks": [
+        {"context": "groundstroke address/contact - slight forward tilt into the court", "value": "roughly 0-20 deg from vertical", "source": "letsgotennis_techniques"}
+      ],
+      "faults": {
+        "low": {
+          "name": "Too upright / leaning back",
+          "looks_like": "Standing bolt upright or falling backwards away from the ball.",
+          "causes": ["Pulling off the shot / opening up too early", "Late contact forcing a backward lean"],
+          "fix": "Keep the chin level and lean lightly into the court; finish with the chest toward the target.",
+          "feel": "Nose over the front foot, not behind the hips.",
+          "drills": ["trunk_stability", "balance_finish"]
+        },
+        "high": {
+          "name": "Over-leaning / falling away",
+          "looks_like": "Excessive sideways or forward collapse, losing balance through the finish.",
+          "causes": ["Over-swinging", "Off-balance footwork into the shot"],
+          "fix": "Stay balanced - control the lean so you can hold the finish for a beat.",
+          "feel": "If you can't freeze your finish, you weren't balanced.",
+          "drills": ["balance_finish", "trunk_stability"]
+        }
+      }
+    },
+    "elbow_angle": {
+      "label": "Arm extension (elbow angle)",
+      "checks": ["arm angle"],
+      "phases": ["backswing", "contact"],
+      "biomechanics": "The elbow angle sets your contact distance and leverage. A cramped (small) elbow angle drags contact in toward the body and shortens the lever; an over-extended (locked) arm costs control and loads the joint. On the serve the arm is deliberately bent in the trophy and racket-drop, then snaps toward extension at impact as the kinetic chain releases.",
+      "pro_benchmarks": [
+        {"context": "elbow at serve ball impact", "value": "~30.1 +/- 15.9 deg flexion (~150 deg interior; near but not fully locked)", "source": "frontiers_serve_meta"},
+        {"context": "internal shoulder rotation, not elbow extension, supplies most racket speed at serve impact", "value": "elbow stays slightly flexed at contact", "source": "pmc_biomech_tennis"},
+        {"context": "straight-arm vs flexed-arm forehand shoulder angle (both are viable pro patterns)", "value": "straight ~79 deg, flexed ~53 deg at the shoulder", "source": "comparative_forehand"}
+      ],
+      "faults": {
+        "low": {
+          "name": "Arm too bent at contact (interior angle too small)",
+          "looks_like": "Elbow tucked in, contact crowded into the body, no extension through the ball.",
+          "causes": ["Late contact / contact too close", "Pulling the arm in instead of extending through", "Cramped grip and tense forearm"],
+          "fix": "Extend through contact and meet the ball a comfortable arm's length out in front.",
+          "feel": "Reach through the ball toward the target, then let it wrap.",
+          "drills": ["shadow_swing", "contact_mirror", "volley_punch"]
+        },
+        "high": {
+          "name": "Arm locked / over-extended",
+          "looks_like": "Rigid straight arm, no give in the elbow, reaching for a ball that is too far away.",
+          "causes": ["Reaching for a wide ball instead of moving the feet", "Trying to muscle the shot"],
+          "fix": "Keep a touch of give in the elbow and move your feet so the ball arrives in your zone.",
+          "feel": "Soft, springy elbow - don't snap it straight.",
+          "drills": ["shadow_swing", "contact_mirror"]
+        }
+      }
+    },
+    "hip_shoulder_sep": {
+      "label": "Hip-shoulder separation (X-factor)",
+      "checks": ["body position", "core coil"],
+      "phases": ["backswing"],
+      "view_required": ["front", "back"],
+      "biomechanics": "The X-factor is the difference between how far the shoulders turn and how far the hips turn. Stretching the shoulders past the hips on the takeback pre-tensions the core; when the hips fire first on the way back to the ball, that stored stretch releases as 'effortless' racket speed. Too little separation = pushing the ball; too much, uncoordinated, breaks timing.",
+      "pro_benchmarks": [
+        {"context": "groundstroke loading/cocking separation", "value": "~25-30 deg", "source": "grokipedia_groundstroke"},
+        {"context": "one-handed backhand backswing separation", "value": "~30 deg", "source": "grokipedia_groundstroke"},
+        {"context": "two-handed backhand backswing separation", "value": "~20 deg", "source": "grokipedia_groundstroke"}
+      ],
+      "faults": {
+        "low": {
+          "name": "Body turns as one block (no coil)",
+          "looks_like": "Hips and shoulders rotate together; no stretch across the core.",
+          "causes": ["Turning hips and shoulders together", "Stepping/opening the hips too early"],
+          "fix": "Coil the shoulders past the hips on the takeback, then let the hips lead back to the ball.",
+          "feel": "Shoulders wind, hips wait, then hips fire first.",
+          "drills": ["x_factor", "hip_lead_drill", "backhand_coil"]
+        },
+        "high": {
+          "name": "Over-separation / timing break",
+          "looks_like": "Shoulders wound far past the hips but the unwind is mistimed, so the energy leaks.",
+          "causes": ["Over-winding for power", "Hips and shoulders out of sequence"],
+          "fix": "Ease the coil and match the unwind - separation only helps if the sequence is clean.",
+          "feel": "Coil to a stretch you can release on time, not a maximum.",
+          "drills": ["hip_lead_drill"]
+        }
+      }
+    },
+    "contact_in_front": {
+      "label": "Contact point in front",
+      "checks": ["wrist position", "timing"],
+      "phases": ["contact"],
+      "view_required": ["side_left", "side_right", "diagonal_left", "diagonal_right"],
+      "biomechanics": "Meeting the ball in front of the body lets the player see the ball, transfer body weight forward into the shot, and control direction. Late contact (level with or behind the hip) means the ball is playing the player: weight goes backward, the arm decelerates, and errors spray.",
+      "pro_benchmarks": [
+        {"context": "forehand contact ahead of the body (pros)", "value": "~30-40 cm in front", "source": "oncourtai_forehand"},
+        {"context": "one-handed backhand contact in front", "value": "~0.59 m", "source": "pmc_backhand_kinematics"},
+        {"context": "two-handed backhand contact in front (closer, more reaction time)", "value": "~0.40 m", "source": "pmc_backhand_kinematics"}
+      ],
+      "faults": {
+        "low": {
+          "name": "Late contact (too close / behind)",
+          "looks_like": "Ball caught level with or behind the hip; weight falling backward.",
+          "causes": ["Late preparation", "Poor footwork / not stepping in", "Watching instead of moving"],
+          "fix": "Meet the ball earlier - step and catch it at the peak of the front foot, out in front.",
+          "feel": "Strike before the ball gets deep; contact in your field of vision.",
+          "drills": ["contact_point", "contact_mirror", "serve_target"]
+        },
+        "high": {
+          "name": "Reaching too far in front",
+          "looks_like": "Stretching forward for a contact point too far ahead, losing balance and control.",
+          "causes": ["Lunging at the ball", "Mistiming the step-in"],
+          "fix": "Let the ball travel a touch - still in front, but where you can stay balanced.",
+          "feel": "Patient: it will arrive in your strike zone.",
+          "drills": ["contact_point"]
+        }
+      }
+    },
+    "contact_height": {
+      "label": "Contact / strike height",
+      "checks": ["swing height", "wrist position"],
+      "phases": ["contact"],
+      "biomechanics": "Groundstrokes are grooved around a comfortable strike zone (roughly waist height); serves and overheads want a high, fully stretched contact. Hitting outside the grooved zone changes the geometry of the whole swing. On the serve a higher impact lets internal-shoulder-rotation strength convert into serve speed.",
+      "pro_benchmarks": [
+        {"context": "serve arm abduction / contact geometry", "value": "contact at ~100-110 deg of arm abduction, near full stretch", "source": "pmc_8stage_serve"},
+        {"context": "serve impact height is the biomechanical link from shoulder strength to serve speed", "value": "higher, well-timed contact = faster serve", "source": "preprints_toss_zenith"}
+      ],
+      "faults": {
+        "low": {
+          "name": "Contact too low / not reaching up (serve, overhead)",
+          "looks_like": "Letting the serve toss drop before contact; hitting the ball below full stretch.",
+          "causes": ["Toss too low or dropping the tossing arm early", "No leg drive up to the ball", "Reaching out instead of up at contact"],
+          "fix": "Reach up and contact at the highest comfortable point; drive up from the legs.",
+          "feel": "Stretch tall and hit at the top of the reach.",
+          "drills": ["high_contact_drill", "toss_reach", "serve_trophy"]
+        },
+        "high": {
+          "name": "Over-reaching the contact",
+          "looks_like": "Straining upward past a balanced contact, often chasing a toss thrown too high or too far back.",
+          "causes": ["Toss too high/behind", "Jumping for a ball out of position"],
+          "fix": "Settle the contact to a height you can repeat on balance.",
+          "feel": "Tall but balanced, not a maximum stretch every time.",
+          "drills": ["toss_reach"]
+        }
+      }
+    },
+    "wrist_finish_height": {
+      "label": "Follow-through / finish height",
+      "checks": ["swing height", "wrist position"],
+      "phases": ["follow_through"],
+      "biomechanics": "The follow-through is the receipt for everything before it. A high finish (racket up and over the opposite shoulder) proves the player accelerated UP through the ball - the low-to-high path that produces topspin - instead of decelerating into it. A short, low finish usually means a flat, braking swing. Modern 'windshield-wiper' forehands may finish anywhere from waist to over-the-shoulder depending on contact height, but the swing must still travel low-to-high through the ball.",
+      "pro_benchmarks": [
+        {"context": "topspin forehand swing path", "value": "low-to-high, finishing high (over the shoulder) or wrapping to the waist on a wiper finish", "source": "tennisinstruction_wiper"}
+      ],
+      "faults": {
+        "low": {
+          "name": "Short / low finish (deceleration)",
+          "looks_like": "Racket stops near the contact zone; little upward wrap.",
+          "causes": ["Decelerating into the ball / 'placing' it", "No low-to-high brush for topspin", "Tight arm at the finish"],
+          "fix": "Finish higher, over the opposite shoulder, and hold it for a beat.",
+          "feel": "Swing all the way up; let the racket wrap high.",
+          "drills": ["balance_finish", "slow_follow"]
+        },
+        "high": {
+          "name": "Forced / stiff finish",
+          "looks_like": "Exaggerated, tense follow-through that throws off balance.",
+          "causes": ["Forcing the wrap", "Over-swinging"],
+          "fix": "Relax the finish and let the follow-through breathe.",
+          "feel": "Smooth, not stiff, at the end.",
+          "drills": ["slow_follow"]
+        }
+      }
+    },
+    "toss_height": {
+      "label": "Serve toss height",
+      "checks": ["serve toss"],
+      "phases": ["preparation"],
+      "biomechanics": "The toss peak must sit slightly above the contact point so the ball drops into a perfectly timed contact. Too low rushes the swing and forces a downward hit into the net; too high adds a falling-ball timing error. The toss should be released with a straight tossing arm and placed slightly in front and to the racket side, not over the head (12 o'clock), to avoid impingement and downward swing paths.",
+      "pro_benchmarks": [
+        {"context": "toss placement", "value": "slightly lateral and in front, contact at ~100 deg arm abduction; toss peak just above contact", "source": "pmc_8stage_serve"},
+        {"context": "toss-execution consistency amplifies serve speed", "value": "consistent toss > raw toss height", "source": "preprints_toss_zenith"}
+      ],
+      "faults": {
+        "low": {
+          "name": "Toss too low",
+          "looks_like": "Rushed swing, contact below full stretch, serves into the net.",
+          "causes": ["Flicking the wrist on release", "Releasing the ball too late", "Bent tossing arm"],
+          "fix": "Toss higher with a straight arm and a smooth lift; reach up to the ball.",
+          "feel": "Lift and release like placing the ball on a high shelf.",
+          "drills": ["toss_reach", "serve_trophy"]
+        },
+        "high": {
+          "name": "Toss too high",
+          "looks_like": "Waiting on a falling ball; timing varies serve to serve.",
+          "causes": ["Throwing rather than lifting the toss", "Releasing too early"],
+          "fix": "Lower the toss so the peak is just above your contact point.",
+          "feel": "The ball should barely 'hang' at the top before you hit it.",
+          "drills": ["toss_reach"]
+        }
+      }
+    },
+    "wrist_divergence": {
+      "label": "Toss-arm / racket-arm separation",
+      "checks": ["serve toss"],
+      "phases": ["preparation"],
+      "view_required": ["front", "diagonal_left", "diagonal_right"],
+      "biomechanics": "On a sound serve the tossing arm and racket arm separate cleanly ('down together, up together' then split into the trophy): the tossing arm reaches up to release while the racket arm loads back and up. Poor separation - dropping the tossing arm early - collapses the shoulder tilt and drives the swing downward into the net.",
+      "pro_benchmarks": [
+        {"context": "trophy position", "value": "tossing arm extended up, racket arm cocked - both up, then separating", "source": "pmc_8stage_serve"}
+      ],
+      "faults": {
+        "low": {
+          "name": "Tossing arm drops early / arms don't separate",
+          "looks_like": "Tossing arm collapses as soon as the ball is released; shoulders level out.",
+          "causes": ["Pulling the tossing arm down too soon", "Rushing the motion"],
+          "fix": "Keep the tossing arm up and pointed at the ball longer while the racket arm loads.",
+          "feel": "Hold the toss-arm up like a statue until the racket drops.",
+          "drills": ["serve_trophy", "toss_reach"]
+        },
+        "high": {
+          "name": "Over-separated / out of sync",
+          "looks_like": "Toss arm and racket arm wildly out of phase, breaking the trophy timing.",
+          "causes": ["Disconnected, jerky service motion"],
+          "fix": "Synchronise the toss with the trophy position - smooth and together.",
+          "feel": "Both arms rise as one, then split on time.",
+          "drills": ["serve_trophy"]
+        }
+      }
+    },
+    "prep_before_contact_ms": {
+      "label": "Preparation timing",
+      "checks": ["timing"],
+      "phases": ["timing"],
+      "biomechanics": "Early preparation buys time, and time is what separates clean contact from scrambling. Getting the unit turn and racket back before the ball bounces on your side lets the swing flow into a balanced contact; late prep cascades into late contact, a rushed swing and hurried footwork.",
+      "pro_benchmarks": [
+        {"context": "racket-back-before-bounce window for groundstrokes", "value": "~600-1200 ms of preparation before contact", "source": "internal_reference"}
+      ],
+      "faults": {
+        "low": {
+          "name": "Late preparation",
+          "looks_like": "Racket still going back as the ball arrives; everything is rushed.",
+          "causes": ["Slow reaction off the opponent's hit", "Watching the ball instead of turning", "Lazy feet"],
+          "fix": "Racket back before the bounce on your side, every time. Say 'turn' as the ball crosses the net.",
+          "feel": "Beat the bounce with your turn.",
+          "drills": ["early_turn", "two_bounce_prep"]
+        },
+        "high": {
+          "name": "Rushing / over-early and frozen",
+          "looks_like": "Prepared so early the swing stalls and tenses before contact.",
+          "causes": ["Snatching at the swing", "No rhythm between prep and swing"],
+          "fix": "Prepare early but let the swing breathe - smooth tempo, no hurry.",
+          "feel": "Early racket, unhurried swing.",
+          "drills": ["slow_follow"]
+        }
+      }
+    },
+    "split_step_rate": {
+      "label": "Split-step rhythm",
+      "checks": ["leg position", "footwork"],
+      "phases": ["footwork_window"],
+      "biomechanics": "The split step is a small hop timed to LAND just as the opponent strikes the ball. Landing loaded on the balls of the feet lets the player push off explosively in any direction, and primes reaction time. No split step = a flat-footed, late first move.",
+      "pro_benchmarks": [
+        {"context": "split-step timing", "value": "land as the opponent contacts the ball, feet ~shoulder-width, knees soft", "source": "ussportscamps_splitstep"}
+      ],
+      "faults": {
+        "low": {
+          "name": "Missing / late split step",
+          "looks_like": "Flat feet at the opponent's contact; slow, heavy first step.",
+          "causes": ["Standing still and watching", "Mistiming the hop", "Fatigue"],
+          "fix": "Hop a small split step on every opponent hit, landing on the balls of the feet.",
+          "feel": "Land light and loaded exactly as they strike.",
+          "drills": ["split_step", "split_box"]
+        },
+        "high": {
+          "name": "Too many / mistimed hops",
+          "looks_like": "Bouncing constantly between balls, burning energy and mistiming the real split.",
+          "causes": ["Nervous feet", "No rhythm to the split"],
+          "fix": "Save the hop for the opponent's contact - one well-timed split, not constant jumping.",
+          "feel": "Quiet feet, then one sharp split on their hit.",
+          "drills": ["split_step"]
+        }
+      }
+    },
+    "stance_width": {
+      "label": "Stance width (base)",
+      "checks": ["leg position", "footwork", "balance"],
+      "phases": ["footwork_window"],
+      "biomechanics": "A base wider than the shoulders lowers the centre of mass, improves balance through contact and lets the player load the outside leg to drive into the shot. A narrow base tips over the moment the player swings hard or changes direction.",
+      "pro_benchmarks": [
+        {"context": "ready position and loaded stance", "value": "feet at least shoulder-width, often wider on open-stance groundstrokes", "source": "tennisnation_footwork"}
+      ],
+      "faults": {
+        "low": {
+          "name": "Base too narrow",
+          "looks_like": "Feet close together; off balance on hard or wide shots.",
+          "causes": ["Lazy setup", "Not widening before the swing"],
+          "fix": "Set the feet wider than the shoulders before the swing starts.",
+          "feel": "Wide enough that a push couldn't topple you.",
+          "drills": ["wide_base", "figure_eight_feet"]
+        },
+        "high": {
+          "name": "Base too wide / planted",
+          "looks_like": "Feet so wide the player is stuck and can't adjust or recover.",
+          "causes": ["Over-spreading", "Heavy, planted feet"],
+          "fix": "Bring the feet in a touch to a strong but mobile width.",
+          "feel": "Wide and balanced, but still able to move.",
+          "drills": ["figure_eight_feet"]
+        }
+      }
+    },
+    "recovery_steps": {
+      "label": "Recovery footwork",
+      "checks": ["leg position", "footwork"],
+      "phases": ["footwork_window"],
+      "biomechanics": "Recovery decides whether a player hits ONE good shot or builds a whole point. After contact, quick shuffle or crossover steps back toward the middle (or the smart court position) re-centre the player before the next ball. Watching your own shot concedes the court.",
+      "pro_benchmarks": [
+        {"context": "recovery pattern", "value": "shuffle/crossover back toward center, low economical steps, re-split before the next ball", "source": "tennisnation_footwork"}
+      ],
+      "faults": {
+        "low": {
+          "name": "No recovery / admiring the shot",
+          "looks_like": "Standing where the shot was hit; caught out of position on the reply.",
+          "causes": ["Watching the ball after contact", "Tired legs", "No automatic recovery habit"],
+          "fix": "The shot isn't over at contact - two quick shuffles back toward the middle before the ball crosses the net.",
+          "feel": "Hit, then immediately move home.",
+          "drills": ["recovery_shuffle", "approach_recovery"]
+        },
+        "high": {
+          "name": "Frantic / inefficient recovery",
+          "looks_like": "Lots of small panicked steps, crossing the feet, never settling.",
+          "causes": ["No rhythm to recovery", "Over-running the center"],
+          "fix": "Calm, controlled shuffle steps with rhythm - don't cross the feet.",
+          "feel": "Smooth recovery, then a balanced split.",
+          "drills": ["recovery_shuffle", "figure_eight_feet"]
+        }
+      }
+    }
+  },
+  "strokes": {
+    "forehand": {
+      "summary": "Topspin drive built on an early unit turn, a low-to-high swing and contact out in front. Power comes from the legs and trunk (shoulder internal rotation supplies a large share of racket speed), not the arm.",
+      "typical_grip": "Eastern or Semi-Western (Semi-Western is the most common modern forehand grip and the easiest route to topspin). Grip is NOT pose-measurable - coach it verbally.",
+      "key_checkpoints": ["Early shoulder turn before the bounce", "Loaded legs / athletic knee bend", "Slightly bent, relaxed elbow", "Contact ~30-40 cm in front of the body", "Low-to-high finish, balanced"],
+      "metric_focus": ["shoulder_turn", "elbow_angle", "contact_in_front", "knee_flexion", "wrist_finish_height", "prep_before_contact_ms"],
+      "common_faults": ["Not turning the body (arming the ball)", "Wrong grip blocking topspin", "Late preparation -> late contact", "Decelerating into a low finish"]
+    },
+    "backhand": {
+      "summary": "One- or two-handed. The one-hander is an open kinetic chain needing a stable, fairly straight hitting arm and a contact point well in front; the two-hander is a closed chain - more stable, contact closer to the body, more reaction time.",
+      "typical_grip": "One-hander: Eastern backhand / Continental hitting hand. Two-hander: dominant Continental + non-dominant Eastern/Semi-Western forehand. Grip is NOT pose-measurable.",
+      "key_checkpoints": ["Full shoulder coil (show the back) - more for the one-hander", "Hitting arm set (straighter for the one-hander)", "Contact in front: ~0.59 m one-handed, ~0.40 m two-handed", "Drive up and through, balanced finish"],
+      "metric_focus": ["shoulder_turn", "elbow_angle", "contact_in_front", "hip_shoulder_sep", "wrist_finish_height"],
+      "common_faults": ["Bent/collapsing arm on the one-hander", "Late or cramped contact", "Turning hips and shoulders as one block (no coil)"],
+      "notes": "One- vs two-handed cannot be reliably told apart from pose alone; the engine scores the visible arm shape and contact geometry. The two-hand contact band is naturally a touch closer to the body."
+    },
+    "serve": {
+      "summary": "The most complex stroke - an 8-stage chain (start, release, loading, cocking/trophy, acceleration, contact, deceleration, finish). The trophy is the fully loaded position: maximum knee flexion and lowest elbow, with the tossing arm up. Energy flows legs -> trunk -> shoulder internal rotation -> arm -> wrist into an upward, slightly-in-front contact.",
+      "typical_grip": "Continental (the universal serve grip; it enables the pronation/internal rotation that creates pace and spin). Using a forehand 'pancake' grip is a classic fault and is NOT pose-measurable.",
+      "key_checkpoints": ["Smooth straight-arm toss, slightly in front and to the racket side", "Trophy: deep knee bend (~115 deg interior), elbow up, racket up, tossing arm up", "Racket drop behind the back", "Reach UP to a high contact (~100-110 deg arm abduction, elbow ~150 deg interior)", "Drive the chest through; land inside the court"],
+      "metric_focus": ["knee_flexion", "elbow_angle", "contact_height", "toss_height", "wrist_divergence", "trunk_tilt"],
+      "common_faults": ["Toss too low / dropping the tossing arm early -> downward swing into the net", "Pancake (forehand) grip preventing pronation", "Shallow knee bend losing leg drive", "Contact too low / not reaching up"],
+      "kovacs_model_source": "pmc_8stage_serve"
+    },
+    "volley": {
+      "summary": "A compact PUNCH at the net, not a swing. Short or no backswing, a firm wrist, contact clearly in front, and body weight stepped through the ball. Same Continental grip for both forehand and backhand volley so there's no time-consuming grip change.",
+      "typical_grip": "Continental for both wings. NOT pose-measurable.",
+      "key_checkpoints": ["Small unit turn (set the shoulders, no big takeback)", "Low athletic base, knees bent", "Firm wrist and arm - 'punch', don't swing", "Contact clearly in front of the body", "Short, held finish - step in with the weight"],
+      "metric_focus": ["shoulder_turn", "elbow_angle", "contact_in_front", "knee_flexion", "wrist_finish_height"],
+      "common_faults": ["Big backswing (slow reaction, less control)", "Loose/whippy wrist", "Contact too late / beside the body", "Standing tall instead of in a low base"]
+    },
+    "footwork": {
+      "summary": "Scored over rolling ~10 s windows, not per shot. The movement skills that set up every stroke: a well-timed split step, a wide balanced base, and quick economical recovery. Low, light steps - not high-impact hops.",
+      "metric_focus": ["split_step_rate", "stance_width", "recovery_steps"],
+      "key_checkpoints": ["Split step landing as the opponent strikes", "Base wider than the shoulders", "Shuffle/crossover recovery back to position", "Re-split before the next ball"],
+      "common_faults": ["Flat-footed, no split step", "Narrow base / off balance", "Admiring the shot instead of recovering"]
+    }
+  },
+  "principles": {
+    "kinetic_chain": "Power is generated proximal-to-distal: ground reaction -> legs -> hips -> trunk (X-factor) -> shoulder -> elbow -> wrist -> racket. Each link adds speed and any weak/late link leaks energy and raises injury risk. Most of the metrics above are checkpoints on this chain.",
+    "ground_up": "Bend the knees to load, drive up through contact. Stiff legs force the arm to do the work.",
+    "contact_in_front": "Across every stroke, contact in front of the body lets the player see the ball, transfer weight forward, and control direction.",
+    "early_preparation": "Turn and prepare before the bounce on your side; late prep cascades into late, rushed contact.",
+    "balance_and_finish": "If you can't hold a balanced finish for a beat, the swing wasn't balanced.",
+    "consistency_over_power": "Repeatable mechanics beat occasional big hits; small adjustments compound."
+  },
+  "sources": [
+    {"id": "pmc_8stage_serve", "title": "An 8-Stage Model for Evaluating the Tennis Serve (Kovacs & Ellenbecker)", "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC3445225/"},
+    {"id": "frontiers_serve_meta", "title": "Kinematics characteristics of key point of interest during tennis serve: systematic review and meta-analysis (Frontiers, 2024)", "url": "https://www.frontiersin.org/journals/sports-and-active-living/articles/10.3389/fspor.2024.1432030/full"},
+    {"id": "pmc_knee_serve", "title": "The Effects of Knee Flexion on Tennis Serve Performance of Intermediate Level Tennis Players", "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC8398391/"},
+    {"id": "pmc_biomech_tennis", "title": "Biomechanics and tennis (Kovacs review)", "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC2577481/"},
+    {"id": "pmc_elbow", "title": "Biomechanics of the elbow joint in tennis players and relation to pathology", "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC2465285/"},
+    {"id": "pmc_backhand_kinematics", "title": "The Kinematics of Trunk and Upper Extremities in One-Handed and Two-Handed Backhand Stroke", "url": "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3588639/"},
+    {"id": "preprints_toss_zenith", "title": "The Role of Toss Zenith and Impact Height in the Relationship Between Shoulder Rotation Strength and Serve Speed", "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12641958/"},
+    {"id": "grokipedia_groundstroke", "title": "Groundstroke biomechanics overview (kinetic chain, X-factor, separation angles)", "url": "https://grokipedia.com/page/Groundstroke"},
+    {"id": "comparative_forehand", "title": "A Comparative Study on Biomechanics of Men's Tennis Forehand (straight vs flexed arm)", "url": "https://www.2winpub.com/static/uploads/journalArticle/jyglts0202014.pdf"},
+    {"id": "oncourtai_forehand", "title": "Tennis Forehand Analysis Metrics Explained (contact 30-40 cm in front)", "url": "https://www.oncourtai.co.uk/tennis-forehand-analysis"},
+    {"id": "feeltennis_shoulder", "title": "The Importance Of Shoulder Rotation In Tennis Groundstrokes (Feel Tennis)", "url": "https://www.feeltennis.net/shoulder-rotation/"},
+    {"id": "tennisinstruction_wiper", "title": "Windshield Wiper Forehand - The Modern Tennis Forehand Shot", "url": "https://tennisinstruction.com/windshield-wiper-forehand/"},
+    {"id": "tenniscompanion_grips", "title": "Tennis Grips Explained: The 5 Types", "url": "https://tenniscompanion.org/tennis-grips/"},
+    {"id": "ussportscamps_splitstep", "title": "Tennis Tip: The Foundation of Good Footwork (The Split Step)", "url": "https://www.ussportscamps.com/tips/tennis/tennis-tip-foundation-of-good-footwork-split-step"},
+    {"id": "tennisnation_footwork", "title": "Ultimate Tennis Footwork Guide: Ready Position To Recovery", "url": "https://www.tennisnation.com/free-lessons/technique/ultimate-tennis-footwork-guide/"},
+    {"id": "thetennistribe_volley", "title": "How To Volley In Tennis | Grip, Technique, Tips, & Drills", "url": "https://thetennistribe.com/volley-checklist/"},
+    {"id": "feeltennis_volley", "title": "Tennis Backhand Volley Technique: A Simple 5-Step Guide (Feel Tennis)", "url": "https://www.feeltennis.net/backhand-volley-technique/"},
+    {"id": "letsgotennis_techniques", "title": "Tennis Techniques & Shots: The Complete Blueprint", "url": "https://letsgotennis.com/tennis-guide/tennis-techniques/"},
+    {"id": "internal_reference", "title": "RallyCoach reference library (python_lab/biomech_reference.py) - timing band encoded from ITF/USPTA coaching standards", "url": "python_lab/biomech_reference.py"}
+  ]
+}

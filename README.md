@@ -69,7 +69,9 @@ lib/core/storage/   drift schema: sessions, shot_stats, stroke_trends
 lib/features/       screens (Fresh Court design: white + ball green)
 python_lab/         DEV-ONLY: reference math, synthetic swing fixtures,
                     shared test vectors, phrase-bank builder
-assets/reference/   per-stroke/tier ideal ranges (literature-derived)
+assets/reference/   per-stroke/tier ideal ranges (literature-derived) +
+                    coaching_knowledge.json (faults→causes→fixes→drills,
+                    keyed to metric id; see docs/TENNIS_COACHING_KNOWLEDGE.md)
 ```
 
 ## Building
@@ -135,8 +137,12 @@ python3 build_phrase_banks.py
   4 KB-aligned and can only be fixed upstream; they don't affect current
   devices (16 KB pages are opt-in on Android 15).
 - Reference ranges are encoded from published coaching literature and
-  validated on synthetic kinematic fixtures; tuning against real labeled
-  footage (the original M1 plan) is the next data milestone.
+  validated on synthetic kinematic fixtures; the literature behind every
+  range — plus a metric-by-metric fault/cause/fix/drill knowledge base — is
+  documented in [`docs/TENNIS_COACHING_KNOWLEDGE.md`](docs/TENNIS_COACHING_KNOWLEDGE.md)
+  and the machine-readable `assets/reference/coaching_knowledge.json`. Tuning
+  against real labeled footage (the original M1 plan) is the next data
+  milestone.
 - Forehand/backhand discrimination from a pure side view is geometrically
   ambiguous in 2D; the orientation classifier degrades gracefully
   ("limited angle — footwork cues only").

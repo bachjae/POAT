@@ -12,6 +12,31 @@ Angle conventions (degrees):
   - hip_shoulder_sep: shoulder_turn minus hip_turn (X-factor)
 Timing in milliseconds before contact.
 
+NOTE on conventions vs the literature: sports-science papers report JOINT
+FLEXION (0 = straight), whereas this engine uses the INTERIOR angle
+(180 = straight). Convert with interior = 180 - flexion. Example: a serve
+front-knee flexion of 64.5 deg at the trophy == ~115.5 deg interior, which
+sits inside the serve preparation knee_flexion band below.
+
+SOURCES (the human-readable dossier with full citations and the
+metric-by-metric coaching knowledge lives in
+docs/TENNIS_COACHING_KNOWLEDGE.md and assets/reference/coaching_knowledge.json):
+  [S1] Kovacs & Ellenbecker, "An 8-Stage Model for Evaluating the Tennis
+       Serve" (PMC3445225) - serve phases; trophy = max knee flexion + lowest
+       elbow; contact ~100-110 deg arm abduction.
+  [S2] "Kinematics characteristics ... during tennis serve: systematic review
+       and meta-analysis", Frontiers 2024 (PMC11260724) - front-knee flexion
+       at trophy 64.5 +/- 9.7 deg; elbow flexion at impact 30.1 +/- 15.9 deg
+       (~150 deg interior).
+  [S3] Knudson/Elliott, "Biomechanics and tennis" (PMC2577481) - kinetic chain,
+       proximal-to-distal sequencing, groundstroke power.
+  [S4] One- vs two-handed backhand kinematics (PMC3588639) - contact in front
+       ~0.59 m (1H) vs ~0.40 m (2H); open vs closed kinetic chain.
+  [S5] Groundstroke X-factor / hip-shoulder separation ~25-30 deg (1H BH ~30,
+       2H BH ~20). [S6] The Effects of Knee Flexion on Serve Performance
+       (PMC8398391) - deeper bend -> more vertical drive and serve speed.
+Each stroke block below is annotated with the [S#] it draws on.
+
 Run: python3 biomech_reference.py  (writes ../assets/reference/*.json)
 """
 import json
@@ -75,6 +100,9 @@ FOREHAND_PHASES = {
             m("elbow_angle", [90, 140], 0.20, ALL_VIEWS,
               "let the arm relax back further",
               "keep the takeback more compact"),
+            # X-factor groundstroke separation ~25-30 deg [S5]; band centred
+            # there with tier-scaled width (front/back views only — the
+            # rotation collapses in side projection).
             m("hip_shoulder_sep", [15, 40], 0.25, ["front", "back"],
               "coil hips and shoulders together more",
               "ease the coil — you're over-rotating"),
@@ -105,6 +133,10 @@ FOREHAND_PHASES = {
     },
 }
 
+# ---- Backhand (1H/2H; contact-in-front & coil per [S4], [S5]) ----
+# Contact band is generous to span both the further-in-front one-hander
+# (~0.59 m) and the closer two-hander (~0.40 m), which a 2D side view cannot
+# tell apart. Hitting-arm elbow runs straighter than the forehand at contact.
 BACKHAND_PHASES = {
     "preparation": {
         "metrics": [
@@ -145,6 +177,11 @@ BACKHAND_PHASES = {
     },
 }
 
+# ---- Serve (8-stage model [S1]; angles from meta-analysis [S2], [S6]) ----
+# Trophy = fully loaded: deep knee bend (front-knee flexion ~64.5 deg ==
+# ~115 deg interior, inside the [105,140] prep band) and lowest elbow. Impact
+# reaches toward extension (elbow flexion ~30 deg == ~150 deg interior) at
+# ~100-110 deg arm abduction (the contact_height band).
 SERVE_PHASES = {
     "preparation": {
         "metrics": [
@@ -185,6 +222,7 @@ SERVE_PHASES = {
     },
 }
 
+# ---- Volley (compact punch; firm arm, short backswing, contact in front) ----
 VOLLEY_PHASES = {
     "preparation": {
         "metrics": [
@@ -215,7 +253,9 @@ VOLLEY_PHASES = {
     },
 }
 
-# Footwork is windowed, not per-shot (SPEC §7): continuous metrics per 10s window.
+# Footwork is windowed, not per-shot (SPEC §7): continuous metrics per 10s
+# window. Split step lands as the opponent strikes; base wider than the
+# shoulders; quick economical recovery back to position ([S3] + USTA footwork).
 FOOTWORK_WINDOW_METRICS = [
     m("split_step_rate", [0.5, 1.0], 0.35, ALL_VIEWS,
       "split step before every move",
