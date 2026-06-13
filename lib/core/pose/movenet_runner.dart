@@ -1,17 +1,16 @@
 /// MoveNet SinglePose inference via tflite_flutter (SPEC §4).
 ///
 /// Thunder (256², default) or Lightning (192², thermal fallback). The
-/// interpreter runs with XNNPACK + 4 threads (several× faster than the
-/// plain CPU path on the f16 models) inside a dedicated [PoseIsolate]:
-/// camera bytes go in as flat typed data, keypoints come back as 51 floats,
-/// and neither pixel conversion nor inference ever touches the UI thread.
+/// interpreter runs with 4 threads (LiteRT applies its built-in XNNPACK
+/// delegate by default) inside a dedicated [PoseIsolate]: camera bytes go
+/// in as flat typed data, keypoints come back as 51 floats, and neither
+/// pixel conversion nor inference ever touches the UI thread.
 /// Device-only by design — excluded from unit tests.
 library;
 
 import 'dart:typed_data';
 
 import 'package:flutter/services.dart';
-import 'package:tflite_flutter/tflite_flutter.dart';
 
 import '../engine/engine_types.dart';
 import 'pose_isolate.dart';
@@ -34,21 +33,16 @@ class MoveNetRunner {
 
   static Future<MoveNetRunner> load(MoveNetVariant variant) async {
     // Load model bytes in the main isolate — rootBundle is platform-channel-
-    // backed and can only be called here. The bytes are passed to the worker
-    // which creates its own Interpreter (with XNNPACK) in its own OS thread.
+    // backed and can only be called here. The bytes are passed to the worker,
+    // which creates the one and only Interpreter; no interpreter is ever
+    // created on the UI isolate (the worker probes the input tensor type
+    // itself).
     final modelData = await rootBundle.load(variant.assetPath);
     final modelBytes = modelData.buffer.asUint8List();
-
-    // Quick synchronous probe to determine the input tensor type. We close
-    // this interpreter immediately; the worker creates the real one.
-    final probe = Interpreter.fromBuffer(modelBytes);
-    final inputIsFloat = probe.getInputTensor(0).type == TensorType.float32;
-    probe.close();
 
     final worker = await PoseIsolate.spawn(
       modelBytes: modelBytes,
       inputSize: variant.inputSize,
-      inputIsFloat: inputIsFloat,
     );
     return MoveNetRunner._(variant, worker);
   }

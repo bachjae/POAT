@@ -6,10 +6,14 @@
 /// which copy across isolates in microseconds.
 ///
 /// The interpreter is created INSIDE the worker from the model bytes passed
-/// at spawn time. This is intentional: XNNPACK delegates are thread-affine —
-/// they must be created and used on the same OS thread. Sharing a native
-/// interpreter pointer across isolates (different OS threads) causes a native
-/// crash in release builds even though both sides are single-threaded Dart.
+/// at spawn time, with plain multi-threaded options. Never add
+/// [XNNPackDelegate] from Dart: tflite_flutter 0.12.1 bundles LiteRT 1.4.0
+/// natives, but its generated TfLiteXNNPackDelegateOptions FFI struct is the
+/// old 4-field TFLite ~2.12 layout. The native side copies sizeof(its own,
+/// larger struct), reads past the Dart allocation into garbage (e.g. a bogus
+/// weight-cache path pointer) and SIGSEGVs — a hard process kill no Dart
+/// try/catch can intercept. LiteRT applies its internal XNNPACK delegate by
+/// default with correctly-sized options, so the speed is kept regardless.
 ///
 /// Device-only by design — excluded from unit tests.
 library;
@@ -73,17 +77,15 @@ class PoseIsolate {
   bool _disposed = false;
 
   /// [modelBytes] is the raw TFLite flatbuffer; the worker creates its own
-  /// [Interpreter] from it (with XNNPACK) so the delegate is initialised on
-  /// the worker's OS thread — the only thread that ever calls invoke().
+  /// [Interpreter] from it so the UI isolate never touches native TFLite.
   static Future<PoseIsolate> spawn({
     required Uint8List modelBytes,
     required int inputSize,
-    required bool inputIsFloat,
   }) async {
     final responses = ReceivePort();
     final isolate = await Isolate.spawn(
       _workerMain,
-      [responses.sendPort, modelBytes, inputSize, inputIsFloat],
+      [responses.sendPort, modelBytes, inputSize],
       debugName: 'pose-inference',
     );
     final ready = Completer<SendPort>();
@@ -138,26 +140,17 @@ Future<void> _workerMain(List<Object> init) async {
   final replies = init[0] as SendPort;
   final modelBytes = init[1] as Uint8List;
   final inputSize = init[2] as int;
-  final inputIsFloat = init[3] as bool;
 
-  // Create the interpreter in THIS isolate's OS thread so XNNPACK is
-  // initialised here and all invoke() calls stay on the same thread.
-  late Interpreter interpreter;
+  // Plain multi-threaded options only — see the library doc above for why
+  // XNNPackDelegate must never be constructed from Dart with this package.
+  late final Interpreter interpreter;
+  late final bool inputIsFloat;
   try {
-    try {
-      interpreter = Interpreter.fromBuffer(
-        modelBytes,
-        options: InterpreterOptions()
-          ..threads = 4
-          ..addDelegate(
-              XNNPackDelegate(options: XNNPackDelegateOptions(numThreads: 4))),
-      );
-    } catch (_) {
-      interpreter = Interpreter.fromBuffer(
-        modelBytes,
-        options: InterpreterOptions()..threads = 4,
-      );
-    }
+    interpreter = Interpreter.fromBuffer(
+      modelBytes,
+      options: InterpreterOptions()..threads = 4,
+    );
+    inputIsFloat = interpreter.getInputTensor(0).type == TensorType.float32;
   } catch (e) {
     replies.send('$e');
     return;
