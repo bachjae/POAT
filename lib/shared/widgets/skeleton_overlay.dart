@@ -4,6 +4,14 @@
 /// (the forearm-extension estimate from `lib/core/engine/racquet.dart`, the
 /// same model the engine scores) drawn in ball green so the player can see the
 /// racquet the coach is reading.
+///
+/// MoveNet has no racquet keypoints, so the shaft is purely a forearm
+/// extension — it would otherwise be drawn on every frame an arm is visible,
+/// painting a "racquet" onto an empty hand. The shaft is therefore gated on
+/// [SkeletonOverlay.showRacquet]: the caller only enables it while a swing is
+/// actually in progress, so a player standing around empty-handed no longer
+/// sees a phantom racquet. (A genuine optical detector would replace this gate
+/// with a real presence score; see `lib/core/pose/racquet_detector.dart`.)
 library;
 
 import 'dart:math' as math;
@@ -37,6 +45,7 @@ class SkeletonOverlay extends StatelessWidget {
     required this.sourceHeight,
     this.mirror = false,
     this.leftHanded = false,
+    this.showRacquet = true,
   });
 
   final PoseFrame? frame;
@@ -50,23 +59,29 @@ class SkeletonOverlay extends StatelessWidget {
   /// Dominant hand the racquet is drawn on (left wrist/elbow when true).
   final bool leftHanded;
 
+  /// Whether to draw the forearm-extension racquet shaft. The estimate has no
+  /// way to know a racquet is actually held, so the caller gates this on an
+  /// active swing to avoid painting a phantom racquet on an idle/empty hand.
+  final bool showRacquet;
+
   @override
   Widget build(BuildContext context) => CustomPaint(
-        painter:
-            _SkeletonPainter(frame, sourceWidth, sourceHeight, mirror, leftHanded),
+        painter: _SkeletonPainter(
+            frame, sourceWidth, sourceHeight, mirror, leftHanded, showRacquet),
         size: Size.infinite,
       );
 }
 
 class _SkeletonPainter extends CustomPainter {
   _SkeletonPainter(this.frame, this.sourceWidth, this.sourceHeight, this.mirror,
-      this.leftHanded);
+      this.leftHanded, this.showRacquet);
 
   final PoseFrame? frame;
   final int sourceWidth;
   final int sourceHeight;
   final bool mirror;
   final bool leftHanded;
+  final bool showRacquet;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -100,7 +115,7 @@ class _SkeletonPainter extends CustomPainter {
       canvas.drawCircle(p, 3, Paint()..color = RcColors.ball);
     }
 
-    _paintRacquet(canvas, f, mapXy);
+    if (showRacquet) _paintRacquet(canvas, f, mapXy);
   }
 
   /// Draws the racquet shaft (handle→tip) on the dominant arm using the same
@@ -170,5 +185,6 @@ class _SkeletonPainter extends CustomPainter {
   bool shouldRepaint(_SkeletonPainter old) =>
       old.frame != frame ||
       old.mirror != mirror ||
-      old.leftHanded != leftHanded;
+      old.leftHanded != leftHanded ||
+      old.showRacquet != showRacquet;
 }

@@ -36,6 +36,7 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
   LiveStats _stats = LiveStats.zero;
   SessionPhase _phase = SessionPhase.live;
   PoseFrame? _lastFrame;
+  bool _swinging = false;
   List<Offset> _trail = const [];
   DateTime? _trailAt;
   bool _lastFlash = false;
@@ -56,6 +57,10 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
       _subs.add(session.orchestrator.phase
           .listen((p) => setState(() => _phase = p)));
       _subs.add(session.orchestrator.processor.shots.listen(_onShot));
+      // Gate the racquet overlay on an active swing so it isn't drawn on an
+      // idle or empty hand (the shaft is only a forearm-extension estimate).
+      _subs.add(session.orchestrator.processor.swinging
+          .listen((s) => setState(() => _swinging = s)));
       _subs.add(session.poseSource.frames
           .listen((f) => setState(() => _lastFrame = f)));
     }
@@ -146,6 +151,7 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
               sourceHeight: source.lastSourceSize!.height,
               mirror: source.isFrontCamera,
               leftHanded: session?.orchestrator.config.leftHanded ?? false,
+              showRacquet: _swinging,
             ),
           if (!paused && _trail.length > 1) WristTrail(points: _trail),
           if (session?.cameraSource?.thermalFallbackActive ?? false)

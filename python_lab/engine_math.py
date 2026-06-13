@@ -304,6 +304,25 @@ def detect_shots(frames, base_threshold=6.0, window=45, min_gap=30):
     return [sh for sh in shots if validate_shot_window(frames, sh, speeds)]
 
 
+def _chirality_sign(frames, s, p):
+    """In-frame chirality of the player: +1 when the dominant (right, after
+    handedness mirroring) shoulder sits on the +x side — the engine's reference
+    orientation, equivalent to viewing the player from behind — and -1 when the
+    player is horizontally flipped in frame, as they are when facing the camera.
+
+    Forehand/backhand loads on the dominant side, so the wrist-x sign only reads
+    correctly once this flip is folded out; otherwise a player facing the camera
+    has every forehand reported as a backhand. Averaged over prep->contact so a
+    single jittered shoulder keypoint can't flip the sign. This is +1 for all the
+    reference-chirality synthetic fixtures, so it only corrects real footage.
+    """
+    total = 0.0
+    for i in range(s, p + 1):
+        kp = frames[i]["kp"]
+        total += kp[R_SHOULDER][0] - kp[L_SHOULDER][0]
+    return 1.0 if total >= 0.0 else -1.0
+
+
 def classify_shot(frames, shot):
     """SPEC §6 decision rules. frames normalized + mirrored (dominant = right).
 
@@ -311,7 +330,9 @@ def classify_shot(frames, shot):
            wrist peak (wrist above nose level at peak).
     Volley: short swing arc (low backswing amplitude).
     Forehand vs backhand: wrist x relative to body at backswing — forehand
-    loads on the dominant (+x) side, backhand crosses to the off side.
+    loads on the dominant (+x) side, backhand crosses to the off side — after
+    correcting for the player's in-frame chirality (see _chirality_sign) so the
+    rule holds whether the player faces toward or away from the camera.
     """
     s, p, e = shot["start"], shot["peak"], shot["end"]
     peak_kp = frames[p]["kp"]
@@ -332,7 +353,7 @@ def classify_shot(frames, shot):
         return "volley"
 
     backswing_i = backswing_frame(frames, s, p)
-    bw_x = frames[backswing_i]["kp"][R_WRIST][0]
+    bw_x = frames[backswing_i]["kp"][R_WRIST][0] * _chirality_sign(frames, s, p)
     return "forehand" if bw_x >= 0.0 else "backhand"
 
 
