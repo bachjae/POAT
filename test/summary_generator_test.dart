@@ -110,7 +110,7 @@ void main() {
         catalog.forDeviations(['shoulder_turn', 'prep_before_contact_ms']);
     expect([for (final d in drills) d.id],
         ['early_turn', 'two_bounce_prep', 'backhand_coil']);
-    expect(catalog.drills, hasLength(24));
+    expect(catalog.drills, hasLength(27));
     expect(catalog.forDeviations(['unknown_metric']), isEmpty);
 
     // Breadth before depth: two ids -> first drill of each, not two for one.

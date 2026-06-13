@@ -114,6 +114,29 @@
     ],
     "recovery": [
       "recovery_steps"
+    ],
+    "racquet": [
+      "racquet_angle",
+      "racquet_height"
+    ],
+    "racket": [
+      "racquet_angle",
+      "racquet_height"
+    ],
+    "face": [
+      "racquet_angle"
+    ],
+    "head": [
+      "racquet_angle"
+    ],
+    "vertical": [
+      "racquet_angle"
+    ],
+    "tip": [
+      "racquet_height"
+    ],
+    "drop": [
+      "racquet_drop"
     ]
   },
   "max_words": 16

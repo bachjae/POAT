@@ -150,6 +150,47 @@ Scored over rolling ~10 s windows, not per shot.
 - **Recovery:** quick shuffle/crossover steps back toward position, then
   re-split before the next ball. Low, economical steps — not high hops.
 
+### The racquet tracker — `racquet_angle`, `racquet_height`, `racquet_drop`
+
+MoveNet has no racquet keypoints, so RallyCoach tracks the racquet as a
+**rigid extension of the forearm**: the frame leaves the hand at the wrist and
+continues ~1.35 torso lengths along the elbow→wrist line, giving a
+**handle → throat → tip** skeleton in the same units as the body
+(`lib/core/engine/racquet.dart`, `python_lab/engine_math.py`). It is drawn live
+over the player so you can see the racquet the coach is reading.
+
+This reads the racquet-**arm line and gross orientation** — *not* the
+open/closed **face twist** or the **grip**, which are wrist/hand-driven and
+**not sensible from a 2D body pose** (they remain verbal-only coaching, like
+before). What it adds:
+
+- **`racquet_angle`** — the shaft angle from vertical **at contact**. On
+  groundstrokes and volleys (view-gated to side/diagonal) the racquet should
+  swing **on the line of the shot with the head leading**; a lagging or
+  flicking head turns the face over and sprays direction. On the serve the same
+  measure wants the racquet **vertical (tip up)** at a fully reached contact.
+- **`racquet_height`** — the **frame-tip reach at contact** on the serve and
+  overhead. Striking with the racquet **fully extended overhead** is your power
+  and your downward margin into the box; below full stretch you lose both. It
+  complements `contact_height` (the *wrist* height) by adding the racquet length.
+- **`racquet_drop`** — the tip height at the serve **racket-drop** (the
+  back-scratch). Reported for context but **not scored** from pose alone (the
+  back-scratch depth is foreshortened and unreliable in 2D).
+
+A **`racquet_confidence` (0–1)** rides on every shot: how sure the tracker is a
+racquet was actually swung, from the **racquet-head sweep + arm extension**
+(or, when bundled, an optical detector). When it is low the coach **hedges or
+stays quiet** instead of confidently coaching a non-shot — this is what keeps a
+stray empty-hand wave from being treated like a real stroke.
+
+> **Upgrade path — optical racquet detector.** Everything above runs from the
+> forearm estimate today. The data contract (`racquetPose(..., detected:)`)
+> already accepts measured `handle/throat/tip` keypoints, so bundling a
+> racquet-keypoint TFLite model later (`tool/fetch_models.sh --racquet`,
+> hooked into the pose isolate exactly like MoveNet) upgrades **every racquet
+> metric in place** — and makes `racquet_confidence` an **authoritative
+> presence gate**, the robust fix for "I'm not even holding a racquet."
+
 ---
 
 ## 3. Stroke-by-stroke
@@ -160,10 +201,11 @@ out in front**. Power is legs + trunk + shoulder internal rotation, not arm.
 - **Grip (verbal only):** Eastern or **Semi-Western** (most common modern
   forehand grip; easiest topspin) ([grips explained][grips]).
 - **Checkpoints:** early shoulder turn · loaded knees · relaxed slightly-bent
-  elbow · contact 30–40 cm in front · balanced low-to-high finish.
+  elbow · contact 30–40 cm in front · **racquet swinging on the line, head
+  leading** (`racquet_angle`) · balanced low-to-high finish.
 - **Common faults:** not turning the body (arming it), wrong grip blocking
-  topspin, late prep → late contact, decelerating into a low finish
-  ([common mistakes][mistakes]).
+  topspin, late prep → late contact, **racquet head lagging / flicking across
+  the ball**, decelerating into a low finish ([common mistakes][mistakes]).
 
 ### Backhand (one- and two-handed)
 The **one-hander** is an *open* kinetic chain needing a stable, fairly
@@ -185,7 +227,10 @@ loading, **cocking/trophy**, acceleration, **contact**, deceleration, finish
 - **Toss:** straight-arm lift, slightly in front and to the racket side (not
   12 o'clock); **peak just above the contact point**. Consistency of the toss
   matters more than raw height ([toss zenith][toss-zenith]).
-- **Contact:** reach **up** to ~100–110° arm abduction, elbow ~150° interior.
+- **Contact:** reach **up** to ~100–110° arm abduction, elbow ~150° interior,
+  the **racquet vertical (tip up) at full reach** (`racquet_angle`,
+  `racquet_height`); behind the trophy the head **drops down the back**
+  (`racquet_drop`).
 - **Grip (verbal only):** **Continental** — it enables the pronation/internal
   rotation that creates pace and spin. A forehand "pancake" grip is a classic
   fault.
@@ -198,8 +243,9 @@ A compact **punch**, not a swing: short/no backswing, **firm wrist**, contact
 clearly in front, body weight stepped through the ball. **Continental grip for
 both wings** so there's no grip change at net speed ([volley technique][volley];
 [backhand volley][bh-volley]).
-- **Common faults:** big backswing (slow, less control), loose/whippy wrist,
-  late contact, standing tall instead of in a low base.
+- **Common faults:** big backswing (slow, less control), loose/whippy wrist
+  (**racquet head flailing**, `racquet_angle`), late contact, standing tall
+  instead of in a low base.
 
 ---
 
@@ -211,12 +257,14 @@ both wings** so there's no grip change at net speed ([volley technique][volley];
 | `assets/reference/coaching_knowledge.json` | structured faults→causes→fixes→drills, keyed to metric id + direction | the machine-readable form of this document |
 | `assets/drills.json` | drills keyed by the metric id they fix | every fault here names the drill ids that target it |
 | `lib/core/brain/lite_coach.dart` | offline "why this matters / how to fix it" per metric | mirrors the rationale and fixes documented here |
-| Gemma prompts (`assets/prompts/`) | the LLM's "general tennis technique knowledge" | this document is that knowledge, made explicit and sourced |
+| `lib/core/engine/racquet.dart` | the racquet tracker (handle→throat→tip) + `racquet_confidence` | the second tracker; estimates the racquet from the forearm, detector-upgradable |
+| Gemma prompts (`assets/prompts/`) | the LLM's "general tennis technique knowledge" + a low-racquet-confidence hedge | this document is that knowledge, made explicit and sourced |
 
-Engine **detection thresholds were not loosened or changed** by this work —
+Engine **shot-detection thresholds were not loosened or changed** by this work —
 they were validated against the literature (`python3 validate_engine.py` stays
-100% on the synthetic suite). What grew is the **coaching knowledge** wrapped
-around each measurement.
+100% on the synthetic suite, now including the racquet checks). What grew is the
+**coaching knowledge** wrapped around each measurement and the **racquet
+tracker** layered on top of the body pose.
 
 ---
 

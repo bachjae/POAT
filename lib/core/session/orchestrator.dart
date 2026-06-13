@@ -383,7 +383,15 @@ class SessionOrchestrator {
     );
   }
 
+  /// Below this racquet-tracker confidence the motion probably wasn't a
+  /// racquet swing at all (low racquet-head sweep + a collapsed arm), so the
+  /// coach stays silent rather than confidently coaching a non-shot. Real
+  /// swings read well above this; the optical detector (when bundled) turns
+  /// the same signal into an authoritative presence gate.
+  static const double _racquetCueFloor = 0.3;
+
   void _speakForShot(ShotEvent event, {bool isSessionBest = false}) {
+    if (event.racquetConfidence < _racquetCueFloor) return;
     final deviations = event.score.deviations;
     final recurrence = processor.recurrenceCounts();
     final focusId = _focusManager.update(recurrence);
@@ -469,6 +477,7 @@ class SessionOrchestrator {
         recentCues: List.of(_recentCueTexts),
         classificationConf: event.classificationConf,
         viewConfidence: event.viewConfidence,
+        racquetConfidence: event.racquetConfidence,
         sessionFocus: focusId,
         goalMetric: config.goalMetricId,
       );

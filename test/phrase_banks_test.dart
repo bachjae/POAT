@@ -20,6 +20,8 @@ const _cueSlots = [
   'cue:split_step_rate:low', 'cue:split_step_rate:high',
   'cue:stance_width:low', 'cue:stance_width:high',
   'cue:recovery_steps:low', 'cue:recovery_steps:high',
+  'cue:racquet_angle:low',
+  'cue:racquet_height:low', 'cue:racquet_height:high',
 ];
 
 const _otherSlots = [

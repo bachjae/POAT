@@ -153,6 +153,42 @@
               ],
               "cue_low": "contact higher \u2014 stretch for it",
               "cue_high": "let contact settle a touch lower"
+            },
+            {
+              "id": "racquet_angle",
+              "ideal": [
+                0,
+                25
+              ],
+              "weight": 0.18,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "keep reaching straight up at contact",
+              "cue_high": "reach UP \u2014 get the racquet vertical, not swinging out"
+            },
+            {
+              "id": "racquet_height",
+              "ideal": [
+                3.0,
+                4.0
+              ],
+              "weight": 0.18,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "stretch taller \u2014 get the racquet tip up at contact",
+              "cue_high": "settle the contact a touch \u2014 you're overreaching"
             }
           ]
         },
@@ -338,6 +374,42 @@
               ],
               "cue_low": "contact higher \u2014 stretch for it",
               "cue_high": "let contact settle a touch lower"
+            },
+            {
+              "id": "racquet_angle",
+              "ideal": [
+                0,
+                25
+              ],
+              "weight": 0.18,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "keep reaching straight up at contact",
+              "cue_high": "reach UP \u2014 get the racquet vertical, not swinging out"
+            },
+            {
+              "id": "racquet_height",
+              "ideal": [
+                3.0,
+                4.0
+              ],
+              "weight": 0.18,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "stretch taller \u2014 get the racquet tip up at contact",
+              "cue_high": "settle the contact a touch \u2014 you're overreaching"
             }
           ]
         },
@@ -523,6 +595,42 @@
               ],
               "cue_low": "contact higher \u2014 stretch for it",
               "cue_high": "let contact settle a touch lower"
+            },
+            {
+              "id": "racquet_angle",
+              "ideal": [
+                0,
+                25
+              ],
+              "weight": 0.18,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "keep reaching straight up at contact",
+              "cue_high": "reach UP \u2014 get the racquet vertical, not swinging out"
+            },
+            {
+              "id": "racquet_height",
+              "ideal": [
+                3.0,
+                4.0
+              ],
+              "weight": 0.18,
+              "views": [
+                "side_left",
+                "side_right",
+                "front",
+                "back",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "stretch taller \u2014 get the racquet tip up at contact",
+              "cue_high": "settle the contact a touch \u2014 you're overreaching"
             }
           ]
         },

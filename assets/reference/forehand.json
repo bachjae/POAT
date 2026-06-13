@@ -150,6 +150,22 @@
               ],
               "cue_low": "drive up from the legs at contact",
               "cue_high": "stay grounded through the hit"
+            },
+            {
+              "id": "racquet_angle",
+              "ideal": [
+                150,
+                180
+              ],
+              "weight": 0.12,
+              "views": [
+                "side_left",
+                "side_right",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "let the racquet extend through the line of the shot",
+              "cue_high": "control the racquet head \u2014 don't fling it past contact"
             }
           ]
         },
@@ -350,6 +366,22 @@
               ],
               "cue_low": "drive up from the legs at contact",
               "cue_high": "stay grounded through the hit"
+            },
+            {
+              "id": "racquet_angle",
+              "ideal": [
+                150,
+                180
+              ],
+              "weight": 0.12,
+              "views": [
+                "side_left",
+                "side_right",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "let the racquet extend through the line of the shot",
+              "cue_high": "control the racquet head \u2014 don't fling it past contact"
             }
           ]
         },
@@ -550,6 +582,22 @@
               ],
               "cue_low": "drive up from the legs at contact",
               "cue_high": "stay grounded through the hit"
+            },
+            {
+              "id": "racquet_angle",
+              "ideal": [
+                150,
+                180
+              ],
+              "weight": 0.12,
+              "views": [
+                "side_left",
+                "side_right",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "let the racquet extend through the line of the shot",
+              "cue_high": "control the racquet head \u2014 don't fling it past contact"
             }
           ]
         },

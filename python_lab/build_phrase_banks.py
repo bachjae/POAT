@@ -207,6 +207,33 @@ STEMS = {
         "controlled steps to the middle",
         "reset with rhythm",
     ],
+    # Racquet tracker cues. racquet_angle:high stays per-stroke (the engine
+    # cue differs for a flailing groundstroke vs a serve swung out not up), so
+    # only the safe directions get a generic phrase bank slot here.
+    ("racquet_angle", "low"): [
+        "extend the racquet through",
+        "drive the head through",
+        "racquet through the line",
+        "swing it on through",
+        "finish the racquet forward",
+        "send the head through",
+    ],
+    ("racquet_height", "low"): [
+        "stretch taller for it",
+        "reach the racquet up",
+        "racquet head higher",
+        "full stretch up there",
+        "get up to it",
+        "strike at the peak",
+    ],
+    ("racquet_height", "high"): [
+        "settle the contact down",
+        "ease the reach back",
+        "don't overreach up there",
+        "lower the strike slightly",
+        "comfortable reach, not max",
+        "repeatable contact height",
+    ],
 }
 
 PERSONALITIES = {

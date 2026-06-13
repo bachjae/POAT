@@ -295,6 +295,42 @@
       "Now: smooth recovery, no scramble",
       "Every time: easy feet on the way back"
     ],
+    "cue:racquet_angle:low": [
+      "extend the racquet through",
+      "drive the head through",
+      "racquet through the line",
+      "swing it on through",
+      "finish the racquet forward",
+      "send the head through",
+      "Again: extend the racquet through",
+      "Fix it: drive the head through",
+      "Now: racquet through the line",
+      "Every time: swing it on through"
+    ],
+    "cue:racquet_height:low": [
+      "stretch taller for it",
+      "reach the racquet up",
+      "racquet head higher",
+      "full stretch up there",
+      "get up to it",
+      "strike at the peak",
+      "Again: stretch taller for it",
+      "Fix it: reach the racquet up",
+      "Now: racquet head higher",
+      "Every time: full stretch up there"
+    ],
+    "cue:racquet_height:high": [
+      "settle the contact down",
+      "ease the reach back",
+      "don't overreach up there",
+      "lower the strike slightly",
+      "comfortable reach, not max",
+      "repeatable contact height",
+      "Again: settle the contact down",
+      "Fix it: ease the reach back",
+      "Now: don't overreach up there",
+      "Every time: lower the strike slightly"
+    ],
     "encourage": [
       "that's it, lock it in",
       "good, do it again",

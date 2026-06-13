@@ -39,6 +39,9 @@ def pipeline_vector(stroke, view, quality, seed, noise):
     r = results[0]
     ref = load_ref(stroke)
     scored = em.score_shot(r["measured"], ref, r["view"])
+    norm = [{"t": f["t"], "kp": n["kp"]}
+            for f in frames if (n := em.normalize_frame(f["kp"])) is not None]
+    racquet_conf = em.racquet_confidence(norm, r["shot"], r["phases"])
     return {
         "name": f"{stroke}_{view}_q{quality}_s{seed}",
         "stroke_expected": stroke,
@@ -56,6 +59,7 @@ def pipeline_vector(stroke, view, quality, seed, noise):
             "phase_scores": {k: round(v, 3) for k, v in scored["phase_scores"].items()},
             "deviation_ids": [d["id"] for d in scored["deviations"]],
             "top_deviation": scored["deviations"][0]["id"] if scored["deviations"] else None,
+            "racquet_confidence": round(racquet_conf, 3),
         },
     }
 
@@ -99,12 +103,28 @@ def unit_vectors():
              {"id": "knee_flexion", "severity": 0.9, "weight": 0.15}],
             {"shoulder_turn"}, {"elbow_angle": 6, "knee_flexion": 0})["id"],
     }
+    # Racquet geometry: forearm-extension estimate on a handful of normalized
+    # frames (handle/throat/tip + shaft angle). Pins the Dart racquet port.
+    racquet_samples = []
+    for i in (50, 62, 80):
+        n = em.normalize_frame(frames[i]["kp"])
+        pose = em.racquet_pose(n["kp"])
+        racquet_samples.append({
+            "kp": [[round(v, 4) for v in p] for p in n["kp"]],
+            "expected": {
+                "handle": [round(v, 4) for v in pose[0]],
+                "throat": [round(v, 4) for v in pose[1]],
+                "tip": [round(v, 4) for v in pose[2]],
+                "racquet_angle": round(em.racquet_angle_deg(pose), 3),
+            },
+        })
     return {"normalize_samples": samples, "score_metric_cases": score_cases,
             "mirror_input": mirror_in,
             "mirror_expected": [[round(v, 4) for v in p]
                                 for p in em.mirror_normalized(
                                     [[p[0], p[1]] for p in mirror_in])],
-            "cue_case": cue_case}
+            "cue_case": cue_case,
+            "racquet_samples": racquet_samples}
 
 
 def footwork_frames():

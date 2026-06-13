@@ -79,6 +79,25 @@ def main():
                     failures.append(f"{tag}: poor swing scored {scored['score']:.0f}")
                 if quality <= 0.4 and not scored["deviations"]:
                     failures.append(f"{tag}: poor swing produced no deviations")
+                # Racquet tracker: a clean swing's racquet must sit in range
+                # (no false racquet cue on good form), and a clearly degraded
+                # swing must surface a racquet deviation from a side/diagonal
+                # view (where racquet_angle is scored). Also the racquet
+                # presence/plausibility must read high for a real swing.
+                rk_dev = [d for d in scored["deviations"]
+                          if d["id"].startswith("racquet")]
+                if quality >= 1.0 and rk_dev:
+                    failures.append(
+                        f"{tag}: clean swing flagged racquet {[d['id'] for d in rk_dev]}")
+                norm = [{"t": f["t"], "kp": n["kp"]}
+                        for f in frames if (n := em.normalize_frame(f["kp"])) is not None]
+                conf = em.racquet_confidence(norm, r["shot"], r["phases"])
+                if conf < 0.4:
+                    failures.append(f"{tag}: real swing racquet confidence {conf:.2f} < 0.4")
+                if (quality <= 0.4 and view != "front"
+                        and stroke in ("forehand", "backhand", "volley", "serve")
+                        and not rk_dev):
+                    failures.append(f"{tag}: poor swing produced no racquet deviation")
 
     # view bucket sanity
     for view, expect_prefix in [("side", "side"), ("diagonal", "diagonal"),

@@ -131,6 +131,97 @@ def joint_angles(nkp):
     }
 
 
+# ------------------------------------------------------------------- Racquet
+#
+# MoveNet has no racquet keypoints. A held racquet is, to first order, a rigid
+# extension of the forearm: it leaves the hand at the wrist and continues along
+# the elbow->wrist line. `racquet_pose` returns a 3-point racquet skeleton
+# (handle butt at the hand, throat, frame tip) in the same normalized torso
+# units as the body — derived from the forearm when no optical detector is
+# present, or taken straight from a detector when one is. Everything downstream
+# (metrics, scoring, cues) is identical either way, so bundling a racquet
+# detector model later is a drop-in upgrade. Lengths are torso-relative (the
+# torso, hip-mid->shoulder-mid, is 1.0 after normalization): an adult torso is
+# ~0.5 m and an adult racquet ~0.685 m, so the frame tip sits ~1.35 torso units
+# beyond the hand along the forearm line.
+RACQUET_LEN = 1.35
+RACQUET_THROAT_FRAC = 0.32
+
+
+def racquet_pose(nkp, detected=None):
+    """3-point racquet skeleton [handle, throat, tip] in normalized units.
+
+    detected: optional [[x,y],[x,y],[x,y]] from an optical racquet detector
+    (handle, throat, tip already normalized to torso units); when given it is
+    returned as-is. Otherwise the racquet is estimated as a rigid forearm
+    extension (dominant = right wrist after handedness mirroring).
+    """
+    if detected is not None:
+        return [list(detected[0]), list(detected[1]), list(detected[2])]
+    wrist = nkp[R_WRIST]
+    elbow = nkp[R_ELBOW]
+    dx, dy = wrist[0] - elbow[0], wrist[1] - elbow[1]
+    norm = math.sqrt(dx * dx + dy * dy)
+    if norm < 1e-9:
+        ux, uy = 0.0, 1.0  # degenerate forearm -> assume racquet points up
+    else:
+        ux, uy = dx / norm, dy / norm
+    handle = [wrist[0], wrist[1]]
+    throat = [wrist[0] + ux * RACQUET_LEN * RACQUET_THROAT_FRAC,
+              wrist[1] + uy * RACQUET_LEN * RACQUET_THROAT_FRAC]
+    tip = [wrist[0] + ux * RACQUET_LEN, wrist[1] + uy * RACQUET_LEN]
+    return [handle, throat, tip]
+
+
+def racquet_angle_deg(pose):
+    """Shaft angle from vertical (court-up), 0..180 deg. 0 = tip points
+    straight up, 90 = shaft horizontal, 180 = tip points down. This is the
+    racquet's orientation relative to the body's vertical axis — what the
+    coach means by 'where the racquet face is pointing' (the open/closed face
+    twist itself needs a real detector and is documented as not pose-sensible).
+    """
+    handle, _throat, tip = pose
+    sx, sy = tip[0] - handle[0], tip[1] - handle[1]
+    return abs(math.degrees(math.atan2(sx, sy)))
+
+
+def racquet_metrics_at(nkp, detected=None):
+    """Racquet metric values at a single normalized frame."""
+    pose = racquet_pose(nkp, detected)
+    return {
+        "racquet_angle": racquet_angle_deg(pose),
+        "racquet_height": pose[2][1],  # frame-tip height above hip-mid
+        "racquet_tip_x": pose[2][0],
+    }
+
+
+def racquet_confidence(frames, shot, phases, detected_presence=None):
+    """How sure we are a racquet was actually swung (0..1).
+
+    detected_presence: optional mean per-frame presence score from an optical
+    detector over the swing window — authoritative when present. Without a
+    detector we fall back to a pose-only plausibility: a genuine stroke sweeps
+    the (estimated) racquet head through a long arc with an extending arm,
+    whereas an empty-hand gesture keeps the hand near the body. This DOES NOT
+    fully replace an object detector (it cannot see whether a racquet exists),
+    but it lets the coach hedge instead of confidently mis-coaching a non-shot.
+    """
+    if detected_presence is not None:
+        return max(0.0, min(1.0, detected_presence))
+    s, e, p = shot["start"], shot["end"], shot["peak"]
+    tip_path = 0.0
+    prev = racquet_pose(frames[s]["kp"])[2]
+    for i in range(s + 1, e + 1):
+        cur = racquet_pose(frames[i]["kp"])[2]
+        tip_path += _dist(prev, cur)
+        prev = cur
+    # A full stroke sweeps the head several torso lengths; ~3.5 units saturates.
+    sweep_term = max(0.0, min(1.0, tip_path / 3.5))
+    contact_elbow = joint_angles(frames[p]["kp"])["elbow_angle"]
+    ext_term = max(0.0, min(1.0, (contact_elbow - 70.0) / 80.0))
+    return max(0.0, min(1.0, 0.65 * sweep_term + 0.35 * ext_term))
+
+
 # ------------------------------------------------------------- Shot detector
 
 def wrist_speeds(frames):
@@ -408,6 +499,13 @@ def measure_metrics(frames, phases, address_angles):
         return abs(diff)
 
     prep_ms = frames[phases["contact"]]["t"] - frames[phases["prep"]]["t"]
+    # Racquet skeleton at the backswing and contact frames (forearm-extension
+    # estimate unless an optical detector overrode it upstream). `racquet_drop`
+    # is the frame-tip height at the backswing/racket-drop frame (lower = the
+    # head has dropped deeper behind the player), `racquet_angle` the shaft
+    # orientation at contact, `racquet_height` the tip reach at contact.
+    bw_rk = racquet_metrics_at(frames[phases["backswing"]]["kp"])
+    ct_rk = racquet_metrics_at(frames[phases["contact"]]["kp"])
     result = {
         "preparation": {
             "shoulder_turn": turn(prep_a),
@@ -418,12 +516,15 @@ def measure_metrics(frames, phases, address_angles):
             "elbow_angle": bw_a["elbow_angle"],
             "hip_shoulder_sep": abs(turn(bw_a) - hip_turn(bw_a)),
             "shoulder_turn": turn(bw_a),
+            "racquet_drop": bw_rk["racquet_height"],
         },
         "contact": {
             "elbow_angle": ct_a["elbow_angle"],
             "contact_in_front": ct_a["wrist_x"],
             "knee_flexion": ct_a["knee_flexion"],
             "contact_height": ct_a["wrist_height"],
+            "racquet_angle": ct_rk["racquet_angle"],
+            "racquet_height": ct_rk["racquet_height"],
         },
         "follow_through": {
             "wrist_finish_height": ft_a["wrist_height"],

@@ -78,6 +78,22 @@
               ],
               "cue_low": "take it earlier, out in front",
               "cue_high": "let it come to you a touch"
+            },
+            {
+              "id": "racquet_angle",
+              "ideal": [
+                115,
+                180
+              ],
+              "weight": 0.12,
+              "views": [
+                "side_left",
+                "side_right",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "firm racquet face \u2014 punch it through, no droop",
+              "cue_high": "steady the face \u2014 it's a block, not a flick"
             }
           ]
         },
@@ -188,6 +204,22 @@
               ],
               "cue_low": "take it earlier, out in front",
               "cue_high": "let it come to you a touch"
+            },
+            {
+              "id": "racquet_angle",
+              "ideal": [
+                115,
+                180
+              ],
+              "weight": 0.12,
+              "views": [
+                "side_left",
+                "side_right",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "firm racquet face \u2014 punch it through, no droop",
+              "cue_high": "steady the face \u2014 it's a block, not a flick"
             }
           ]
         },
@@ -298,6 +330,22 @@
               ],
               "cue_low": "take it earlier, out in front",
               "cue_high": "let it come to you a touch"
+            },
+            {
+              "id": "racquet_angle",
+              "ideal": [
+                115,
+                180
+              ],
+              "weight": 0.12,
+              "views": [
+                "side_left",
+                "side_right",
+                "diagonal_left",
+                "diagonal_right"
+              ],
+              "cue_low": "firm racquet face \u2014 punch it through, no droop",
+              "cue_high": "steady the face \u2014 it's a block, not a flick"
             }
           ]
         },

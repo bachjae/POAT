@@ -52,6 +52,13 @@ LEXICON = {
     "wider": ["stance_width"],
     "recover": ["recovery_steps"],
     "recovery": ["recovery_steps"],
+    "racquet": ["racquet_angle", "racquet_height"],
+    "racket": ["racquet_angle", "racquet_height"],
+    "face": ["racquet_angle"],
+    "head": ["racquet_angle"],
+    "vertical": ["racquet_angle"],
+    "tip": ["racquet_height"],
+    "drop": ["racquet_drop"],
 }
 
 # Each case: LLM cue text, the shot's deviated metric ids, recently spoken
@@ -106,6 +113,12 @@ CASES = [
     {"cue": "Wider base when you set up",
      "deviated": ["stance_width"],
      "recent": [], "expect": "accept", "reason": "stance deviated"},
+    {"cue": "Let the racquet extend through the line",
+     "deviated": ["racquet_angle"],
+     "recent": [], "expect": "accept", "reason": "racquet angle deviated"},
+    {"cue": "Keep the racquet face steady through it",
+     "deviated": ["knee_flexion"],
+     "recent": [], "expect": "reject", "reason": "racquet did not deviate"},
 ]
 
 
@@ -122,7 +135,7 @@ def render_template_check():
         "recent_cues": "[extend through contact; stay low]",
         # Optional context slots the live template now exposes (filled by the
         # Dart PromptBuilder; empty here keeps the render-sanity check honest).
-        "session_focus": "", "goal_metric": "",
+        "session_focus": "", "goal_metric": "", "racquet_note": "",
     }
     rendered = tpl
     for k, v in fields.items():

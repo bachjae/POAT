@@ -14,6 +14,7 @@ import 'package:rallycoach/core/engine/engine_types.dart';
 import 'package:rallycoach/core/engine/footwork.dart';
 import 'package:rallycoach/core/engine/normalizer.dart';
 import 'package:rallycoach/core/engine/phase_segmenter.dart';
+import 'package:rallycoach/core/engine/racquet.dart';
 import 'package:rallycoach/core/engine/shot_detector.dart';
 import 'package:rallycoach/core/engine/technique_scorer.dart';
 
@@ -107,6 +108,24 @@ void main() {
       }
     });
 
+    test('racquet_pose + racquet_angle (forearm estimate)', () {
+      for (final sample in vectors['unit']['racquet_samples'] as List) {
+        final nkp = _kp(sample['kp']);
+        final expected = sample['expected'] as Map<String, dynamic>;
+        final pose = racquetPose(nkp);
+        void closePt(List<double> got, List exp) {
+          expect(got[0], closeTo((exp[0] as num).toDouble(), 0.001));
+          expect(got[1], closeTo((exp[1] as num).toDouble(), 0.001));
+        }
+
+        closePt(pose[0], expected['handle'] as List);
+        closePt(pose[1], expected['throat'] as List);
+        closePt(pose[2], expected['tip'] as List);
+        expect(racquetAngleDeg(pose),
+            closeTo((expected['racquet_angle'] as num).toDouble(), 0.01));
+      }
+    });
+
     test('pick_cue', () {
       final c = vectors['unit']['cue_case'] as Map<String, dynamic>;
       final deviations = [
@@ -155,6 +174,10 @@ void main() {
         final (stroke, classConf) = classifyShot(stream.frames, shot);
         expect(stroke.id, expected['stroke']);
         expect(classConf, greaterThan(0.0));
+
+        expect(racquetConfidence(stream.frames, shot),
+            closeTo((expected['racquet_confidence'] as num).toDouble(), 0.01),
+            reason: 'racquet_confidence');
 
         final phases = segmentPhases(stream.frames, shot, stroke);
         final expPhases = expected['phases'] as Map<String, dynamic>;
