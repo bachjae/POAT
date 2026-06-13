@@ -10,6 +10,7 @@ library;
 // ignore_for_file: prefer_initializing_formals
 
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter_gemma/flutter_gemma.dart';
 
@@ -26,11 +27,17 @@ abstract class LlmRunner {
   /// Single full response. When [deadline] elapses, the returned future
   /// completes with a [TimeoutException] which the caller maps to the
   /// deterministic rule-engine fallback.
+  ///
+  /// [contactFrame] is an optional 96×96 packed-RGB thumbnail captured at
+  /// the shot peak. When provided and the active model supports multimodal
+  /// input, the brain receives the raw visual frame alongside the text prompt
+  /// so it can verify that the detected swing actually happened.
   Future<String> generate(
     String prompt, {
     required int maxTokens,
     double temperature = 0.4,
     Duration? deadline,
+    Uint8List? contactFrame,
   });
 
   /// Token stream for live UI (chat, summary typing effect).
@@ -38,6 +45,7 @@ abstract class LlmRunner {
     String prompt, {
     required int maxTokens,
     double temperature = 0.4,
+    Uint8List? contactFrame,
   });
 
   /// Releases the loaded model.
@@ -112,10 +120,11 @@ class GemmaLlmRunner implements LlmRunner {
     required int maxTokens,
     double temperature = 0.4,
     Duration? deadline,
+    Uint8List? contactFrame,
   }) async {
     final session = await _session(temperature);
     try {
-      await session.addQueryChunk(Message(text: prompt, isUser: true));
+      await session.addQueryChunk(_message(prompt, contactFrame));
       var response = session.getResponse();
       if (deadline != null) {
         response = response.timeout(deadline, onTimeout: () async {
@@ -134,14 +143,26 @@ class GemmaLlmRunner implements LlmRunner {
     String prompt, {
     required int maxTokens,
     double temperature = 0.4,
+    Uint8List? contactFrame,
   }) async* {
     final session = await _session(temperature);
     try {
-      await session.addQueryChunk(Message(text: prompt, isUser: true));
+      await session.addQueryChunk(_message(prompt, contactFrame));
       yield* session.getResponseAsync();
     } finally {
       await session.close();
     }
+  }
+
+  /// Builds a [Message], attaching the RGB thumbnail as a multimodal image
+  /// when available. Gemma 4 (E2B and up) processes both text and images via
+  /// its SigLIP vision encoder — the frame lets the model confirm that an arm
+  /// swing is actually visible before committing to a technique cue.
+  Message _message(String prompt, Uint8List? frame) {
+    if (frame != null) {
+      return Message(text: prompt, isUser: true, images: [frame]);
+    }
+    return Message(text: prompt, isUser: true);
   }
 
   Future<InferenceModelSession> _session(double temperature) async {
@@ -201,6 +222,7 @@ class FakeLlmRunner implements LlmRunner {
     required int maxTokens,
     double temperature = 0.4,
     Duration? deadline,
+    Uint8List? contactFrame,
   }) async {
     prompts.add(prompt);
     if (deadline != null && delay > deadline) {
@@ -215,6 +237,7 @@ class FakeLlmRunner implements LlmRunner {
     String prompt, {
     required int maxTokens,
     double temperature = 0.4,
+    Uint8List? contactFrame,
   }) async* {
     prompts.add(prompt);
     final response = _next();

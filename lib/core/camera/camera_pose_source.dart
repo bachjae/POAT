@@ -27,6 +27,8 @@ import '../engine/engine_types.dart';
 import '../pose/movenet_runner.dart';
 import '../pose/pose_smoother.dart';
 import '../pose/pose_source.dart';
+import 'frame_converter.dart';
+import 'shot_frame_buffer.dart';
 
 const _orientationDegrees = {
   DeviceOrientation.portraitUp: 0,
@@ -55,8 +57,14 @@ class CameraPoseSource implements PoseSource {
   bool _preferFront;
   bool _switching = false;
 
+  final ShotFrameBuffer _shotFrameBuffer = ShotFrameBuffer();
+
   @override
   Stream<PoseFrame> get frames => _frames.stream;
+
+  /// Rolling thumbnail buffer; wire to [ShotStreamProcessor.frameLookup] so
+  /// the brain receives a visual snapshot of the contact frame for validation.
+  ShotFrameBuffer get shotFrameBuffer => _shotFrameBuffer;
 
   /// Exposed for the camera-preview widget.
   CameraController? get controller => _controller;
@@ -137,6 +145,7 @@ class CameraPoseSource implements PoseSource {
         await _inFlight;
       } catch (_) {}
       _smoother.reset();
+      _shotFrameBuffer.clear();
       await _startController();
     } finally {
       _switching = false;
@@ -202,6 +211,13 @@ class CameraPoseSource implements PoseSource {
         ? (width: image.width, height: image.height)
         : (width: image.height, height: image.width);
     lastSourceSize = upright;
+
+    // Capture a 96×96 RGB thumbnail before the async inference boundary so
+    // the brain can validate that a real swing occurred at the detected peak.
+    // Using the same converter as MoveNet at a small output size: ~0.3 ms,
+    // well within the frame budget.
+    _captureThumbnail(image, rotation, nowMs);
+
     final PoseFrame pose;
     if (image.format.group == ImageFormatGroup.bgra8888) {
       pose = await runner.estimateBgra8888(
@@ -232,6 +248,38 @@ class CameraPoseSource implements PoseSource {
       height: upright.height,
     );
     if (!_frames.isClosed) _frames.add(smoothed);
+  }
+
+  void _captureThumbnail(CameraImage image, int rotation, int nowMs) {
+    try {
+      final RgbImage thumb;
+      if (image.format.group == ImageFormatGroup.bgra8888) {
+        thumb = bgraToRgb(
+          width: image.width,
+          height: image.height,
+          bgra: image.planes[0].bytes,
+          rowStride: image.planes[0].bytesPerRow,
+          outSize: kThumbnailSize,
+          rotationDegrees: rotation,
+        ).image;
+      } else {
+        thumb = yuv420ToRgb(
+          width: image.width,
+          height: image.height,
+          yPlane: image.planes[0].bytes,
+          uPlane: image.planes[1].bytes,
+          vPlane: image.planes[2].bytes,
+          yRowStride: image.planes[0].bytesPerRow,
+          uvRowStride: image.planes[1].bytesPerRow,
+          uvPixelStride: image.planes[1].bytesPerPixel ?? 1,
+          outSize: kThumbnailSize,
+          rotationDegrees: rotation,
+        ).image;
+      }
+      _shotFrameBuffer.store(nowMs, thumb.bytes);
+    } catch (_) {
+      // Thumbnail failure never disrupts pose inference.
+    }
   }
 
   @override
