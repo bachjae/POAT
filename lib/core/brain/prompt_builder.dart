@@ -78,6 +78,7 @@ class PromptBuilder {
     double racquetConfidence = 1.0,
     String? sessionFocus,
     String? goalMetric,
+    bool hasContactFrame = false,
   }) {
     return _render(_strokeTemplateKey(stroke), {
       'personality_name': personalityName,
@@ -101,6 +102,13 @@ class PromptBuilder {
       'racquet_note': racquetConfidence < 0.5
           ? ' Racquet confidence is low — you may not have a clear racquet in '
               'view, so keep the cue gentle and general.'
+          : '',
+      // Tells the brain whether a visual frame was attached for validation.
+      // When true, the model receives the actual 96×96 RGB contact frame and
+      // should use it to confirm the swing is visible before coaching.
+      'frame_context': hasContactFrame
+          ? ' Contact frame attached — visually confirm the swing occurred '
+              'before coaching. If no clear stroke is visible, soften the cue.'
           : '',
     });
   }

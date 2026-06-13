@@ -12,6 +12,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import '../brain/cue_validator.dart';
 import '../brain/llm_runner.dart';
@@ -132,6 +133,7 @@ class SessionOrchestrator {
     this.brain,
     this.prompts,
     this.validator,
+    this.frameLookup,
     DateTime Function()? clock,
     this.brainDeadline = const Duration(seconds: 4),
     math.Random? rng,
@@ -144,6 +146,7 @@ class SessionOrchestrator {
       referenceFor: (stroke) => references.referenceFor(stroke, _tier),
       leftHanded: config.leftHanded,
       footworkMode: config.effectiveSequence.first == Stroke.footwork.id,
+      frameLookup: frameLookup,
     );
     if (config.goalMetricId != null) {
       _focusManager.setFocus(config.goalMetricId!);
@@ -162,6 +165,12 @@ class SessionOrchestrator {
   final LlmRunner? brain;
   final PromptBuilder? prompts;
   final CueValidator? validator;
+
+  /// Returns a 96×96 RGB thumbnail for the given camera timestamp. Wire to
+  /// [CameraPoseSource.shotFrameBuffer.frameAt] so the brain receives a
+  /// visual frame at the detected shot peak for validation.
+  final Uint8List? Function(int timestampMs)? frameLookup;
+
   final Duration brainDeadline; // initial value; runtime uses _deadline
   late final _AdaptiveDeadline _deadline;
 
@@ -462,6 +471,7 @@ class SessionOrchestrator {
     try {
       if (!await brain!.isAvailable()) return;
       final trend = _scoreTrend();
+      final frame = event.contactFrame;
       final prompt = prompts!.shotCue(
         personalityName: bank.personality.name,
         personalityStyle: bank.personality.style,
@@ -480,10 +490,11 @@ class SessionOrchestrator {
         racquetConfidence: event.racquetConfidence,
         sessionFocus: focusId,
         goalMetric: config.goalMetricId,
+        hasContactFrame: frame != null,
       );
       final sw = Stopwatch()..start();
       final reply = await brain!.generate(prompt,
-          maxTokens: 60, deadline: _deadline.value);
+          maxTokens: 60, deadline: _deadline.value, contactFrame: frame);
       _deadline.recordSuccess(sw.elapsedMilliseconds);
       final verdict = validator!.validate(
         reply,

@@ -13,6 +13,7 @@ library;
 
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import '../engine/cue_prioritizer.dart';
 import '../engine/engine_types.dart';
@@ -35,6 +36,7 @@ class ShotEvent {
     this.viewConfidence = 1.0,
     this.racquetConfidence = 1.0,
     this.racquetAngle,
+    this.contactFrame,
   });
 
   final Stroke stroke;
@@ -64,6 +66,11 @@ class ShotEvent {
   /// Racquet shaft angle from vertical at contact, in degrees (the
   /// forearm-extension estimate). Null for footwork windows.
   final double? racquetAngle;
+
+  /// 96×96 packed RGB thumbnail captured at the detected peak timestamp.
+  /// Null when no camera frame buffer was wired or the peak predates the
+  /// buffer. Passed to the Coach Brain for visual shot validation.
+  final Uint8List? contactFrame;
 }
 
 class FootworkEvent {
@@ -89,6 +96,7 @@ class ShotStreamProcessor {
     this.postWindowMs = 1000,
     this.minGapMs = 1000,
     this.footworkWindowMs = 10000,
+    this.frameLookup,
   });
 
   /// Resolves the scoring reference for a detected stroke (skill tier is the
@@ -96,6 +104,11 @@ class ShotStreamProcessor {
   final StrokeReference? Function(Stroke stroke) referenceFor;
   final bool leftHanded;
   final bool footworkMode;
+
+  /// Returns a 96×96 RGB thumbnail for the given camera timestamp, or null
+  /// when unavailable. Wire to [ShotFrameBuffer.frameAt] from the camera
+  /// source so the brain can visually validate detected shots.
+  final Uint8List? Function(int timestampMs)? frameLookup;
   final int bufferFrames;
   final int detectEvery;
   final int lostAfterFrames;
@@ -299,6 +312,7 @@ class ShotStreamProcessor {
           for (var i = shot.start; i <= shot.end; i++)
             _buffer[i].keypoints[Kp.rightWrist],
         ],
+        contactFrame: frameLookup?.call(peakTs),
       ));
     }
   }
