@@ -43,7 +43,7 @@ dependencies:
   # win32 ^6; share_plus ≥13 and file_picker ≥12.0.0-beta.1 are the first
   # releases that moved to win32 6, so the previous ^10/^8 pins could no
   # longer resolve at all. Move file_picker to 12 stable when it lands.
-  file_picker: ^12.0.0-beta.1
+  file_picker: 12.0.0-beta.5
   share_plus: ^13.0.0
 
 dev_dependencies:

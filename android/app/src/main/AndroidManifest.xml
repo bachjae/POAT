@@ -3,7 +3,7 @@
          permission: the proof of the offline claim. The Coach Brain ships
          inside the APK; nothing is ever uploaded or downloaded. -->
     <uses-permission android:name="android.permission.CAMERA" />
-    <uses-feature android:name="android.hardware.camera" android:required="true" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
     <application
         android:label="RallyCoach"
         android:name="${applicationName}"

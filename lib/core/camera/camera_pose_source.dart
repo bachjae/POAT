@@ -85,7 +85,11 @@ class CameraPoseSource implements PoseSource {
   Future<void> start() async {
     _cameras = await availableCameras();
     _runner = await MoveNetRunner.load(MoveNetVariant.thunder);
-    _thermalSub = Thermal().onThermalStatusChanged.listen(_onThermal);
+    try {
+      _thermalSub = Thermal().onThermalStatusChanged.listen(_onThermal);
+    } catch (_) {
+      // Thermal API unavailable on Android < 10. Run at fixed FPS.
+    }
     await _startController();
   }
 

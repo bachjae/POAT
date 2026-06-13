@@ -40,7 +40,7 @@ android {
             // UNcompressed and page-aligned inside the APK so they are mmap'd
             // directly. This is the modern AGP default; stated explicitly so
             // nobody re-enables legacy extraction and breaks 16 KB devices.
-            useLegacyPackaging = false
+            useLegacyPackaging = true
         }
     }
 
